@@ -84,13 +84,15 @@ final class StatusItemController: NSObject {
 
         if let name = monitor.menuBarNameText, !monitor.timePhraseText.isEmpty {
             button.title = ""
-            let labelView: any View
             if monitor.isUrgent {
-                labelView = MenuBarPill(meetingName: name, timePhrase: monitor.timePhraseText)
+                button.image = renderLabelImage(
+                    MenuBarPill(meetingName: name, timePhrase: monitor.timePhraseText)
+                )
             } else {
-                labelView = MenuBarStandardLabel(meetingName: name, timePhrase: monitor.timePhraseText)
+                button.image = renderLabelImage(
+                    MenuBarStandardLabel(meetingName: name, timePhrase: monitor.timePhraseText)
+                )
             }
-            button.image = renderLabelImage(labelView)
             button.imagePosition = .imageOnly
         } else {
             button.image = templateCalendarIcon()
