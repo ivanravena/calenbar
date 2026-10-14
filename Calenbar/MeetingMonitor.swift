@@ -113,7 +113,7 @@ final class MeetingMonitor: ObservableObject {
             }
 
         if let meeting {
-            let name = Self.truncated(meeting.title)
+            let name = meeting.title
             let timePhrase = Self.phrase(until: meeting.start)
             meetingNameText = name
             timePhraseText = timePhrase
@@ -208,7 +208,4 @@ final class MeetingMonitor: ObservableObject {
         return "in \(hourPart) \(remainder) min"
     }
 
-    private static func truncated(_ title: String) -> String {
-        title.count > 40 ? String(title.prefix(39)) + "…" : title
-    }
 }
