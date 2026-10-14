@@ -1,5 +1,53 @@
 import SwiftUI
 
+struct MenuBarMixedTitle: View {
+    let meetingName: String
+    let timePhrase: String
+    let nameFont: Font
+    let timeFont: Font
+
+    var body: some View {
+        if timePhrase.isEmpty {
+            Text(meetingName)
+                .font(nameFont)
+        } else {
+            Text(meetingName).font(nameFont)
+                + Text(" \(timePhrase)").font(timeFont)
+        }
+    }
+}
+
+/// Default menu bar row: template-style calendar glyph plus mixed-weight title.
+struct MenuBarStandardLabel: View {
+    let meetingName: String
+    let timePhrase: String
+
+    private enum Metrics {
+        static let iconTextSpacing: CGFloat = 6
+    }
+
+    private enum Typography {
+        static let icon = Font.system(size: 11, weight: .semibold)
+        static let name = Font.system(size: 12, weight: .regular)
+        static let time = Font.system(size: 12, weight: .semibold)
+    }
+
+    var body: some View {
+        HStack(spacing: Metrics.iconTextSpacing) {
+            Image(systemName: "calendar")
+                .font(Typography.icon)
+            MenuBarMixedTitle(
+                meetingName: meetingName,
+                timePhrase: timePhrase,
+                nameFont: Typography.name,
+                timeFont: Typography.time
+            )
+        }
+        .foregroundStyle(Color(nsColor: .labelColor))
+        .fixedSize()
+    }
+}
+
 struct MenuBarPill: View {
     let meetingName: String
     let timePhrase: String
@@ -18,7 +66,12 @@ struct MenuBarPill: View {
         HStack(spacing: Metrics.iconTextSpacing) {
             Image(systemName: "calendar")
                 .font(Typography.icon)
-            menuBarLabel
+            MenuBarMixedTitle(
+                meetingName: meetingName,
+                timePhrase: timePhrase,
+                nameFont: Typography.name,
+                timeFont: Typography.time
+            )
         }
         .foregroundStyle(Color.black)
         .padding(.horizontal, 8)
@@ -27,16 +80,5 @@ struct MenuBarPill: View {
             Capsule().fill(Color.yellow)
         }
         .fixedSize()
-    }
-
-    @ViewBuilder
-    private var menuBarLabel: some View {
-        if timePhrase.isEmpty {
-            Text(meetingName)
-                .font(Typography.name)
-        } else {
-            Text(meetingName).font(Typography.name)
-                + Text(" \(timePhrase)").font(Typography.time)
-        }
     }
 }
