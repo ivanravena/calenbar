@@ -4,6 +4,11 @@ import SwiftUI
 
 @MainActor
 final class StatusItemController: NSObject {
+    private enum Metrics {
+        /// Extra space between the calendar symbol and the title on the status item.
+        static let iconTitleSpacing: CGFloat = 6
+    }
+
     private let monitor: MeetingMonitor
     private var statusItem: NSStatusItem?
     private var cancellables = Set<AnyCancellable>()
@@ -82,7 +87,16 @@ final class StatusItemController: NSObject {
             button.title = text
             button.imagePosition = .imageLeading
         }
-        button.toolTip = text
+        button.toolTip = statusItemToolTip(fallback: text)
+    }
+
+    private func statusItemToolTip(fallback: String) -> String {
+        guard let meeting = monitor.meeting else { return fallback }
+        let phrase = monitor.timePhraseText
+        if phrase.isEmpty {
+            return meeting.title
+        }
+        return "\(meeting.title) \(phrase)"
     }
 
     private func renderPillImage(text: String) -> NSImage? {
@@ -95,11 +109,27 @@ final class StatusItemController: NSObject {
     }
 
     private func templateCalendarIcon() -> NSImage? {
-        let image = NSImage(
+        guard let symbol = NSImage(
             systemSymbolName: "calendar",
             accessibilityDescription: "Upcoming meeting"
+        ) else { return nil }
+
+        let symbolSize = symbol.size
+        let canvasSize = NSSize(
+            width: symbolSize.width + Metrics.iconTitleSpacing,
+            height: symbolSize.height
         )
-        image?.isTemplate = true
+
+        let image = NSImage(size: canvasSize)
+        image.isTemplate = true
+        image.lockFocus()
+        symbol.draw(
+            at: .zero,
+            from: NSRect(origin: .zero, size: symbolSize),
+            operation: .sourceOver,
+            fraction: 1
+        )
+        image.unlockFocus()
         return image
     }
 

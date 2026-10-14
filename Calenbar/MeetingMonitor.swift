@@ -29,6 +29,7 @@ final class MeetingMonitor: ObservableObject {
     private var timer: Timer?
     private let lookahead: TimeInterval = 36 * 60 * 60
     private let urgentThreshold: TimeInterval = 10 * 60
+    private static let menuBarEventNameLimit = 12
 
     /// Hide status item when access is granted and there is no upcoming meeting.
     var shouldShowStatusItem: Bool {
@@ -115,9 +116,10 @@ final class MeetingMonitor: ObservableObject {
         if let meeting {
             let name = meeting.title
             let timePhrase = Self.phrase(until: meeting.start)
+            let menuBarName = Self.truncatedMenuBarEventName(name)
             meetingNameText = name
             timePhraseText = timePhrase
-            labelText = "\(name) \(timePhrase)"
+            labelText = "\(menuBarName) \(timePhrase)"
             isUrgent = meeting.start.timeIntervalSinceNow < urgentThreshold
         } else {
             meetingNameText = nil
@@ -136,6 +138,11 @@ final class MeetingMonitor: ObservableObject {
             return false
         }
         return true
+    }
+
+    private static func truncatedMenuBarEventName(_ name: String) -> String {
+        guard name.count > menuBarEventNameLimit else { return name }
+        return String(name.prefix(menuBarEventNameLimit)) + "…"
     }
 
     private static func phrase(until start: Date, now: Date = .now) -> String {
