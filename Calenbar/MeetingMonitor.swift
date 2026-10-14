@@ -21,6 +21,8 @@ final class MeetingMonitor: ObservableObject {
     @Published private(set) var meeting: MeetingSnapshot?
     @Published private(set) var access: CalendarAccess = .unknown
     @Published private(set) var labelText: String = "Calendar"
+    @Published private(set) var meetingNameText: String?
+    @Published private(set) var timePhraseText: String = ""
     @Published private(set) var isUrgent: Bool = false
 
     private let store = EKEventStore()
@@ -83,6 +85,8 @@ final class MeetingMonitor: ObservableObject {
     private func refresh() {
         guard access == .granted else {
             meeting = nil
+            meetingNameText = nil
+            timePhraseText = ""
             labelText = access == .denied ? "Calendar access off" : "Calendar"
             isUrgent = false
             return
@@ -110,12 +114,70 @@ final class MeetingMonitor: ObservableObject {
 
         if let meeting {
             let name = Self.truncated(meeting.title)
-            labelText = "\(name) \(Self.phrase(until: meeting.start))"
+            let timePhrase = Self.phrase(until: meeting.start)
+            meetingNameText = name
+            timePhraseText = timePhrase
+            labelText = "\(name) \(timePhrase)"
             isUrgent = meeting.start.timeIntervalSinceNow < urgentThreshold
         } else {
+            meetingNameText = nil
+            timePhraseText = ""
             labelText = "Calendar"
             isUrgent = false
         }
+    }
+
+    var supportsCollapse: Bool {
+        meeting != nil
+    }
+
+    func statusItemDisplay(for level: MenuBarCollapseLevel) -> StatusItemDisplay {
+        let toolTip = labelText
+
+        guard supportsCollapse else {
+            return StatusItemDisplay(style: .text(labelText), toolTip: toolTip)
+        }
+
+        if isUrgent {
+            switch level {
+            case .full:
+                return StatusItemDisplay(style: .pill(text: labelText), toolTip: toolTip)
+            case .timeOnly:
+                return StatusItemDisplay(style: .pill(text: timePhraseText), toolTip: toolTip)
+            case .iconOnly:
+                return StatusItemDisplay(style: .pillIcon, toolTip: toolTip)
+            }
+        }
+
+        switch level {
+        case .full:
+            return StatusItemDisplay(style: .text(labelText), toolTip: toolTip)
+        case .timeOnly:
+            return StatusItemDisplay(style: .text(timePhraseText), toolTip: toolTip)
+        case .iconOnly:
+            return StatusItemDisplay(style: .templateIcon, toolTip: toolTip)
+        }
+    }
+
+    func measuredWidth(for level: MenuBarCollapseLevel) -> CGFloat {
+        guard supportsCollapse else {
+            return MenuBarLayoutMetrics.textWidth(labelText, urgent: false)
+                + MenuBarLayoutMetrics.leadingIconExtraWidth
+        }
+
+        if isUrgent {
+            return MenuBarLayoutMetrics.pillWidth(
+                fullLabel: labelText,
+                timePhrase: timePhraseText,
+                level: level
+            )
+        }
+
+        return MenuBarLayoutMetrics.plainTextWidth(
+            fullLabel: labelText,
+            timePhrase: timePhraseText,
+            level: level
+        )
     }
 
     private static func isRelevant(_ event: EKEvent, now: Date) -> Bool {

@@ -12,6 +12,20 @@ final class StatusItemController: NSObject {
         self.monitor = monitor
         super.init()
         bind()
+        observeScreenChanges()
+        applyPresentation()
+    }
+
+    private func observeScreenChanges() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(screenParametersChanged),
+            name: NSApplication.didChangeScreenParametersNotification,
+            object: nil
+        )
+    }
+
+    @objc private func screenParametersChanged() {
         applyPresentation()
     }
 
@@ -58,24 +72,60 @@ final class StatusItemController: NSObject {
     private func updateButton() {
         guard let button = statusItem?.button else { return }
 
-        let text = monitor.labelText
-        if monitor.isUrgent {
-            button.title = ""
-            button.image = renderPillImage(text: text)
-            button.imagePosition = .imageOnly
-        } else {
-            button.image = NSImage(systemSymbolName: "calendar", accessibilityDescription: "Calendar")
+        let screen = button.window?.screen ?? NSScreen.main ?? NSScreen.screens.first
+        let availableWidth = screen.map { MenuBarSpaceEstimator.availableWidth(for: $0) } ?? 300
+        let collapseLevel = MenuBarCollapseResolver.bestLevel(availableWidth: availableWidth) { level in
+            monitor.measuredWidth(for: level)
+        }
+        let display = monitor.statusItemDisplay(for: collapseLevel)
+
+        switch display.style {
+        case .text(let text):
+            button.image = templateCalendarIcon()
             button.title = text
             button.imagePosition = .imageLeading
+        case .pill(let text):
+            button.title = ""
+            button.image = renderPillImage(content: .text(text))
+            button.imagePosition = .imageOnly
+        case .pillIcon:
+            button.title = ""
+            button.image = renderPillImage(content: .icon)
+            button.imagePosition = .imageOnly
+        case .templateIcon:
+            button.title = ""
+            button.image = templateCalendarIcon()
+            button.imagePosition = .imageOnly
         }
-        button.toolTip = text
+        button.toolTip = display.toolTip
     }
 
-    private func renderPillImage(text: String) -> NSImage? {
-        let renderer = ImageRenderer(content: MenuBarPill(text: text))
+    private enum PillRenderContent {
+        case text(String)
+        case icon
+    }
+
+    private func renderPillImage(content: PillRenderContent) -> NSImage? {
+        let view: MenuBarPill
+        switch content {
+        case .text(let text):
+            view = MenuBarPill(text: text)
+        case .icon:
+            view = MenuBarPill.iconOnly
+        }
+        let renderer = ImageRenderer(content: view)
         renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
         guard let image = renderer.nsImage else { return nil }
         image.isTemplate = false
+        return image
+    }
+
+    private func templateCalendarIcon() -> NSImage? {
+        let image = NSImage(
+            systemSymbolName: "calendar",
+            accessibilityDescription: "Upcoming meeting"
+        )
+        image?.isTemplate = true
         return image
     }
 
