@@ -65,12 +65,16 @@ final class MeetingMonitor: ObservableObject {
         refresh()
     }
 
-    func openCalendar() {
-        guard let meeting else { return }
-        let stamp = meeting.start.timeIntervalSinceReferenceDate
+    func openEvent(at start: Date) {
+        let stamp = start.timeIntervalSinceReferenceDate
         if let url = URL(string: "calshow:\(stamp)") {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    func openCalendar() {
+        guard let meeting else { return }
+        openEvent(at: meeting.start)
     }
 
     func openPrivacySettings() {

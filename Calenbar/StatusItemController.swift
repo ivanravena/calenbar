@@ -172,6 +172,7 @@ final class StatusItemController: NSObject {
                     keyEquivalent: ""
                 )
                 item.target = self
+                item.representedObject = event
                 item.isEnabled = true
                 let isFeatured = event.eventIdentifier == meeting.eventIdentifier
                     || (event.start == meeting.start && event.title == meeting.title)
@@ -224,7 +225,10 @@ final class StatusItemController: NSObject {
         return menu
     }
 
-    @objc private func eventMenuItemActivated(_ sender: NSMenuItem) {}
+    @objc private func eventMenuItemActivated(_ sender: NSMenuItem) {
+        guard let event = sender.representedObject as? MeetingSnapshot else { return }
+        monitor.openEvent(at: event.start)
+    }
 
     @objc private func openCalendar() {
         monitor.openCalendar()
