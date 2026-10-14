@@ -10,6 +10,26 @@ struct MeetingSnapshot: Equatable {
     let start: Date
     let end: Date
     let calendarTitle: String
+
+    /// Compact duration for status menu rows (e.g. `30 min`, `1 h 15 min`).
+    var menuDurationLabel: String {
+        Self.durationLabel(from: start, to: end)
+    }
+
+    private static func durationLabel(from start: Date, to end: Date) -> String {
+        let seconds = max(0, end.timeIntervalSince(start))
+        let minutes = Int(seconds / 60)
+        if minutes < 60 {
+            let shown = max(minutes, 1)
+            return "\(shown) min"
+        }
+
+        let hours = minutes / 60
+        let remainder = minutes % 60
+        let hourPart = "\(hours) h"
+        guard remainder > 0 else { return hourPart }
+        return "\(hourPart) \(remainder) min"
+    }
 }
 
 enum CalendarAccess: Equatable {

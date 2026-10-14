@@ -228,7 +228,8 @@ final class StatusItemController: NSObject {
             let nextUpcomingInMenu = dayEvents.first { $0.start > now }
             for event in dayEvents {
                 let timeString = event.start.formatted(date: .omitted, time: .shortened)
-                let title = "\(timeString)  \(truncatedMenuEventName(event.title))"
+                let title =
+                    "\(timeString)  \(event.menuDurationLabel)  \(truncatedMenuEventName(event.title))"
                 let item = NSMenuItem(
                     title: title,
                     action: #selector(eventMenuItemActivated(_:)),
