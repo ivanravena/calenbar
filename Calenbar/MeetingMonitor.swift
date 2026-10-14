@@ -4,6 +4,7 @@ import EventKit
 import Foundation
 
 struct MeetingSnapshot: Equatable {
+    let eventIdentifier: String
     let title: String
     let start: Date
     let end: Date
@@ -79,6 +80,21 @@ final class MeetingMonitor: ObservableObject {
         NSWorkspace.shared.open(url)
     }
 
+    /// Timed events on the same calendar day as `referenceDate`, including events that already ended.
+    func eventsForDay(containing referenceDate: Date) -> [MeetingSnapshot] {
+        guard access == .granted else { return [] }
+
+        let calendar = Calendar.current
+        let dayStart = calendar.startOfDay(for: referenceDate)
+        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return [] }
+
+        let predicate = store.predicateForEvents(withStart: dayStart, end: dayEnd, calendars: nil)
+        return store.events(matching: predicate)
+            .filter { Self.isEligibleForDayMenu($0) }
+            .sorted { $0.startDate < $1.startDate }
+            .map { Self.snapshot(from: $0) }
+    }
+
     @objc private func storeChanged() {
         refresh()
     }
@@ -104,14 +120,7 @@ final class MeetingMonitor: ObservableObject {
         let selected = candidates.first { $0.startDate <= now && $0.endDate > now }
             ?? candidates.min { $0.startDate < $1.startDate }
 
-        meeting = selected.map {
-                MeetingSnapshot(
-                    title: $0.title?.isEmpty == false ? $0.title! : "Untitled",
-                    start: $0.startDate,
-                    end: $0.endDate,
-                    calendarTitle: $0.calendar.title
-                )
-            }
+        meeting = selected.map { Self.snapshot(from: $0) }
 
         if let meeting {
             let name = meeting.title
@@ -130,7 +139,14 @@ final class MeetingMonitor: ObservableObject {
     }
 
     private static func isRelevant(_ event: EKEvent, now: Date) -> Bool {
-        guard !event.isAllDay, event.status != .canceled, event.endDate > now else {
+        guard isEligibleForDayMenu(event), event.endDate > now else {
+            return false
+        }
+        return true
+    }
+
+    private static func isEligibleForDayMenu(_ event: EKEvent) -> Bool {
+        guard !event.isAllDay, event.status != .canceled else {
             return false
         }
         if let me = event.attendees?.first(where: \.isCurrentUser),
@@ -138,6 +154,16 @@ final class MeetingMonitor: ObservableObject {
             return false
         }
         return true
+    }
+
+    private static func snapshot(from event: EKEvent) -> MeetingSnapshot {
+        MeetingSnapshot(
+            eventIdentifier: event.eventIdentifier ?? "",
+            title: event.title?.isEmpty == false ? event.title! : "Untitled",
+            start: event.startDate,
+            end: event.endDate,
+            calendarTitle: event.calendar.title
+        )
     }
 
     private static func truncatedMenuBarEventName(_ name: String) -> String {

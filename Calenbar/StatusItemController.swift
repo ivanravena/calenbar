@@ -7,6 +7,7 @@ final class StatusItemController: NSObject {
     private enum Metrics {
         /// Extra space between the calendar symbol and the title on the status item.
         static let iconTitleSpacing: CGFloat = 6
+        static let menuEventNameLimit = 24
     }
 
     private let monitor: MeetingMonitor
@@ -108,6 +109,11 @@ final class StatusItemController: NSObject {
         return image
     }
 
+    private func truncatedMenuEventName(_ name: String) -> String {
+        guard name.count > Metrics.menuEventNameLimit else { return name }
+        return String(name.prefix(Metrics.menuEventNameLimit)) + "…"
+    }
+
     private func templateCalendarIcon() -> NSImage? {
         guard let symbol = NSImage(
             systemSymbolName: "calendar",
@@ -155,18 +161,47 @@ final class StatusItemController: NSObject {
                 keyEquivalent: ""
             ).target = self
         } else if let meeting = monitor.meeting {
-            menu.addItem(withTitle: meeting.title, action: nil, keyEquivalent: "")
-            let calendarItem = menu.addItem(
-                withTitle: meeting.calendarTitle,
-                action: nil,
-                keyEquivalent: ""
-            )
-            calendarItem.attributedTitle = NSAttributedString(
-                string: meeting.calendarTitle,
-                attributes: [.foregroundColor: NSColor.secondaryLabelColor]
-            )
-            let timeString = meeting.start.formatted(date: .omitted, time: .shortened)
-            menu.addItem(withTitle: timeString, action: nil, keyEquivalent: "")
+            let now = Date()
+            let dayEvents = monitor.eventsForDay(containing: meeting.start)
+            for event in dayEvents {
+                let timeString = event.start.formatted(date: .omitted, time: .shortened)
+                let title = "\(timeString)  \(truncatedMenuEventName(event.title))"
+                let item = NSMenuItem(
+                    title: title,
+                    action: #selector(eventMenuItemActivated(_:)),
+                    keyEquivalent: ""
+                )
+                item.target = self
+                item.isEnabled = true
+                let isFeatured = event.eventIdentifier == meeting.eventIdentifier
+                    || (event.start == meeting.start && event.title == meeting.title)
+                if isFeatured {
+                    item.state = .on
+                }
+                let isPast = event.end <= now
+                let menuFont = NSFont.menuFont(ofSize: NSFont.systemFontSize)
+                if isPast {
+                    item.attributedTitle = NSAttributedString(
+                        string: title,
+                        attributes: [
+                            .foregroundColor: NSColor.secondaryLabelColor,
+                            .font: menuFont,
+                        ]
+                    )
+                } else {
+                    item.attributedTitle = NSAttributedString(
+                        string: title,
+                        attributes: [
+                            .foregroundColor: NSColor.labelColor,
+                            .font: NSFont.systemFont(ofSize: menuFont.pointSize, weight: .semibold),
+                        ]
+                    )
+                }
+                menu.addItem(item)
+            }
+            if dayEvents.isEmpty {
+                menu.addItem(withTitle: "No events today", action: nil, keyEquivalent: "")
+            }
             menu.addItem(NSMenuItem.separator())
             menu.addItem(
                 withTitle: "Open in Calendar",
@@ -188,6 +223,8 @@ final class StatusItemController: NSObject {
 
         return menu
     }
+
+    @objc private func eventMenuItemActivated(_ sender: NSMenuItem) {}
 
     @objc private func openCalendar() {
         monitor.openCalendar()
