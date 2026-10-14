@@ -5,6 +5,7 @@ import Foundation
 
 struct MeetingSnapshot: Equatable {
     let eventIdentifier: String
+    let calendarItemIdentifier: String
     let title: String
     let start: Date
     let end: Date
@@ -19,7 +20,10 @@ enum CalendarAccess: Equatable {
 
 @MainActor
 final class MeetingMonitor: ObservableObject {
+    /// Menu bar and primary actions (rolls to next meeting after join grace).
     @Published private(set) var meeting: MeetingSnapshot?
+    /// Meeting in progress now, if any (menu checkmark).
+    @Published private(set) var inProgressMeeting: MeetingSnapshot?
     @Published private(set) var access: CalendarAccess = .unknown
     @Published private(set) var labelText: String = "Calendar"
     @Published private(set) var meetingNameText: String?
@@ -30,6 +34,7 @@ final class MeetingMonitor: ObservableObject {
     private var timer: Timer?
     private let lookahead: TimeInterval = 36 * 60 * 60
     private let urgentThreshold: TimeInterval = 10 * 60
+    private let joinGrace: TimeInterval = 120
     private static let menuBarEventNameLimit = 12
 
     /// Hide status item when access is granted and there is no upcoming meeting.
@@ -65,16 +70,43 @@ final class MeetingMonitor: ObservableObject {
         refresh()
     }
 
-    func openEvent(at start: Date) {
-        let stamp = start.timeIntervalSinceReferenceDate
-        if let url = URL(string: "calshow:\(stamp)") {
+    func openEvent(_ event: MeetingSnapshot) {
+        if let url = Self.calendarEventURL(
+            start: event.start,
+            calendarItemIdentifier: event.calendarItemIdentifier
+        ) {
+            NSWorkspace.shared.open(url)
+            return
+        }
+        if let url = URL(string: "ical://") {
             NSWorkspace.shared.open(url)
         }
     }
 
     func openCalendar() {
-        guard let meeting else { return }
-        openEvent(at: meeting.start)
+        guard let target = inProgressMeeting ?? meeting else { return }
+        openEvent(target)
+    }
+
+    /// macOS Calendar.app deep link (Sonoma+). `calshow:` is iOS-only and is not registered on macOS.
+    private static func calendarEventURL(start: Date, calendarItemIdentifier: String) -> URL? {
+        guard !calendarItemIdentifier.isEmpty else { return nil }
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
+        let dateString = formatter.string(from: start)
+
+        var components = URLComponents()
+        components.scheme = "ical"
+        components.host = "ekevent"
+        components.path = "/\(dateString)/\(calendarItemIdentifier)"
+        components.queryItems = [
+            URLQueryItem(name: "method", value: "show"),
+            URLQueryItem(name: "options", value: "more"),
+        ]
+        return components.url
     }
 
     func openPrivacySettings() {
@@ -106,6 +138,7 @@ final class MeetingMonitor: ObservableObject {
     private func refresh() {
         guard access == .granted else {
             meeting = nil
+            inProgressMeeting = nil
             meetingNameText = nil
             timePhraseText = ""
             labelText = access == .denied ? "Calendar access off" : "Calendar"
@@ -121,10 +154,28 @@ final class MeetingMonitor: ObservableObject {
         let candidates = store.events(matching: predicate)
             .filter { Self.isRelevant($0, now: now) }
 
-        let selected = candidates.first { $0.startDate <= now && $0.endDate > now }
-            ?? candidates.min { $0.startDate < $1.startDate }
+        let inProgressEvent = candidates.first { $0.startDate <= now && $0.endDate > now }
+        let nextUpcomingEvent = candidates
+            .filter { $0.startDate > now }
+            .min { $0.startDate < $1.startDate }
 
-        meeting = selected.map { Self.snapshot(from: $0) }
+        let featuredEvent: EKEvent?
+        if let inProgressEvent {
+            let withinJoinGrace = now.timeIntervalSince(inProgressEvent.startDate) < joinGrace
+            if withinJoinGrace {
+                featuredEvent = inProgressEvent
+            } else if let nextUpcomingEvent {
+                featuredEvent = nextUpcomingEvent
+            } else {
+                featuredEvent = inProgressEvent
+            }
+        } else {
+            featuredEvent = nextUpcomingEvent
+                ?? candidates.min { $0.startDate < $1.startDate }
+        }
+
+        inProgressMeeting = inProgressEvent.map { Self.snapshot(from: $0) }
+        meeting = featuredEvent.map { Self.snapshot(from: $0) }
 
         if let meeting {
             let name = meeting.title
@@ -133,13 +184,38 @@ final class MeetingMonitor: ObservableObject {
             meetingNameText = name
             timePhraseText = timePhrase
             labelText = "\(menuBarName) \(timePhrase)"
-            isUrgent = meeting.start.timeIntervalSinceNow < urgentThreshold
+            isUrgent = Self.isUrgent(
+                featured: meeting,
+                inProgress: inProgressMeeting,
+                now: now,
+                urgentThreshold: urgentThreshold,
+                joinGrace: joinGrace
+            )
         } else {
             meetingNameText = nil
             timePhraseText = ""
             labelText = "Calendar"
             isUrgent = false
         }
+    }
+
+    private static func isUrgent(
+        featured: MeetingSnapshot,
+        inProgress: MeetingSnapshot?,
+        now: Date,
+        urgentThreshold: TimeInterval,
+        joinGrace: TimeInterval
+    ) -> Bool {
+        let secondsToStart = featured.start.timeIntervalSince(now)
+        if secondsToStart > 0, secondsToStart < urgentThreshold {
+            return true
+        }
+        if let inProgress,
+           featured.eventIdentifier == inProgress.eventIdentifier,
+           now.timeIntervalSince(inProgress.start) < joinGrace {
+            return true
+        }
+        return false
     }
 
     private static func isRelevant(_ event: EKEvent, now: Date) -> Bool {
@@ -163,6 +239,7 @@ final class MeetingMonitor: ObservableObject {
     private static func snapshot(from event: EKEvent) -> MeetingSnapshot {
         MeetingSnapshot(
             eventIdentifier: event.eventIdentifier ?? "",
+            calendarItemIdentifier: event.calendarItemIdentifier,
             title: event.title?.isEmpty == false ? event.title! : "Untitled",
             start: event.startDate,
             end: event.endDate,
