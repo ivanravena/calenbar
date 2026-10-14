@@ -24,6 +24,6 @@ If Xcode reports an architecture mismatch, use **Product → Clean Build Folder*
 
 ## Behavior
 
-- Status item: always shows the full `[Meeting name] in X time` line (plain text with a calendar icon), or a yellow pill with the same text when the meeting starts in under 10 minutes or is in progress.
+- Status item: shows `[Meeting name] in X time` (calendar icon) for the next actionable meeting. While you are in a meeting, the bar rolls forward to the following event after a short join grace (~2 minutes). Yellow pill when a featured meeting starts in under 10 minutes, or during that join grace for a meeting that just started.
 - Hidden when there are no upcoming meetings (after access is granted).
 - Click the item for details, **Open in Calendar**, or **Quit**.

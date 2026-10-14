@@ -19,7 +19,10 @@ enum CalendarAccess: Equatable {
 
 @MainActor
 final class MeetingMonitor: ObservableObject {
+    /// Menu bar and primary actions (rolls to next meeting after join grace).
     @Published private(set) var meeting: MeetingSnapshot?
+    /// Meeting in progress now, if any (menu checkmark).
+    @Published private(set) var inProgressMeeting: MeetingSnapshot?
     @Published private(set) var access: CalendarAccess = .unknown
     @Published private(set) var labelText: String = "Calendar"
     @Published private(set) var meetingNameText: String?
@@ -30,6 +33,7 @@ final class MeetingMonitor: ObservableObject {
     private var timer: Timer?
     private let lookahead: TimeInterval = 36 * 60 * 60
     private let urgentThreshold: TimeInterval = 10 * 60
+    private let joinGrace: TimeInterval = 120
     private static let menuBarEventNameLimit = 12
 
     /// Hide status item when access is granted and there is no upcoming meeting.
@@ -102,6 +106,7 @@ final class MeetingMonitor: ObservableObject {
     private func refresh() {
         guard access == .granted else {
             meeting = nil
+            inProgressMeeting = nil
             meetingNameText = nil
             timePhraseText = ""
             labelText = access == .denied ? "Calendar access off" : "Calendar"
@@ -117,10 +122,28 @@ final class MeetingMonitor: ObservableObject {
         let candidates = store.events(matching: predicate)
             .filter { Self.isRelevant($0, now: now) }
 
-        let selected = candidates.first { $0.startDate <= now && $0.endDate > now }
-            ?? candidates.min { $0.startDate < $1.startDate }
+        let inProgressEvent = candidates.first { $0.startDate <= now && $0.endDate > now }
+        let nextUpcomingEvent = candidates
+            .filter { $0.startDate > now }
+            .min { $0.startDate < $1.startDate }
 
-        meeting = selected.map { Self.snapshot(from: $0) }
+        let featuredEvent: EKEvent?
+        if let inProgressEvent {
+            let withinJoinGrace = now.timeIntervalSince(inProgressEvent.startDate) < joinGrace
+            if withinJoinGrace {
+                featuredEvent = inProgressEvent
+            } else if let nextUpcomingEvent {
+                featuredEvent = nextUpcomingEvent
+            } else {
+                featuredEvent = inProgressEvent
+            }
+        } else {
+            featuredEvent = nextUpcomingEvent
+                ?? candidates.min { $0.startDate < $1.startDate }
+        }
+
+        inProgressMeeting = inProgressEvent.map { Self.snapshot(from: $0) }
+        meeting = featuredEvent.map { Self.snapshot(from: $0) }
 
         if let meeting {
             let name = meeting.title
@@ -129,13 +152,38 @@ final class MeetingMonitor: ObservableObject {
             meetingNameText = name
             timePhraseText = timePhrase
             labelText = "\(menuBarName) \(timePhrase)"
-            isUrgent = meeting.start.timeIntervalSinceNow < urgentThreshold
+            isUrgent = Self.isUrgent(
+                featured: meeting,
+                inProgress: inProgressMeeting,
+                now: now,
+                urgentThreshold: urgentThreshold,
+                joinGrace: joinGrace
+            )
         } else {
             meetingNameText = nil
             timePhraseText = ""
             labelText = "Calendar"
             isUrgent = false
         }
+    }
+
+    private static func isUrgent(
+        featured: MeetingSnapshot,
+        inProgress: MeetingSnapshot?,
+        now: Date,
+        urgentThreshold: TimeInterval,
+        joinGrace: TimeInterval
+    ) -> Bool {
+        let secondsToStart = featured.start.timeIntervalSince(now)
+        if secondsToStart > 0, secondsToStart < urgentThreshold {
+            return true
+        }
+        if let inProgress,
+           featured.eventIdentifier == inProgress.eventIdentifier,
+           now.timeIntervalSince(inProgress.start) < joinGrace {
+            return true
+        }
+        return false
     }
 
     private static func isRelevant(_ event: EKEvent, now: Date) -> Bool {

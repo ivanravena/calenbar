@@ -162,6 +162,7 @@ final class StatusItemController: NSObject {
             ).target = self
         } else if let meeting = monitor.meeting {
             let now = Date()
+            let menuHighlight = monitor.inProgressMeeting ?? meeting
             let dayEvents = monitor.eventsForDay(containing: meeting.start)
             for event in dayEvents {
                 let timeString = event.start.formatted(date: .omitted, time: .shortened)
@@ -173,8 +174,8 @@ final class StatusItemController: NSObject {
                 )
                 item.target = self
                 item.isEnabled = true
-                let isFeatured = event.eventIdentifier == meeting.eventIdentifier
-                    || (event.start == meeting.start && event.title == meeting.title)
+                let isFeatured = event.eventIdentifier == menuHighlight.eventIdentifier
+                    || (event.start == menuHighlight.start && event.title == menuHighlight.title)
                 if isFeatured {
                     item.state = .on
                 }
