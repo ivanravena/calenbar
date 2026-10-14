@@ -42,8 +42,9 @@ final class StatusItemController: NSObject {
             monitor.$labelText,
             monitor.$isUrgent
         )
+        .combineLatest(monitor.$menuBarNameText, monitor.$timePhraseText)
         .receive(on: RunLoop.main)
-        .sink { [weak self] _, _, _, _ in
+        .sink { [weak self] _ in
             self?.applyPresentation()
         }
         .store(in: &cancellables)
@@ -79,54 +80,34 @@ final class StatusItemController: NSObject {
         guard let button = statusItem?.button else { return }
 
         let text = monitor.labelText
-        if monitor.isUrgent {
-            button.attributedTitle = NSAttributedString(string: "")
+        button.attributedTitle = NSAttributedString(string: "")
+
+        if let name = monitor.menuBarNameText, !monitor.timePhraseText.isEmpty {
             button.title = ""
-            if let name = monitor.menuBarNameText, !monitor.timePhraseText.isEmpty {
-                button.image = renderPillImage(meetingName: name, timePhrase: monitor.timePhraseText)
+            if monitor.isUrgent {
+                button.image = renderLabelImage(
+                    MenuBarPill(meetingName: name, timePhrase: monitor.timePhraseText)
+                )
             } else {
-                button.image = renderPillImage(meetingName: text, timePhrase: "")
+                button.image = renderLabelImage(
+                    MenuBarStandardLabel(meetingName: name, timePhrase: monitor.timePhraseText)
+                )
             }
             button.imagePosition = .imageOnly
         } else {
             button.image = templateCalendarIcon()
-            if let name = monitor.menuBarNameText, !monitor.timePhraseText.isEmpty {
-                button.attributedTitle = menuBarAttributedTitle(
-                    meetingName: name,
-                    timePhrase: monitor.timePhraseText
-                )
-                button.title = ""
-            } else {
-                button.attributedTitle = NSAttributedString(string: "")
-                button.title = text
-            }
+            button.title = text
             button.imagePosition = .imageLeading
         }
         button.toolTip = statusItemToolTip(fallback: text)
     }
 
-    private func menuBarAttributedTitle(meetingName: String, timePhrase: String) -> NSAttributedString {
-        let font = NSFont.menuBarFont(ofSize: 0)
-        let timeFont = NSFont.systemFont(ofSize: font.pointSize, weight: .semibold)
-        let color = NSColor.labelColor
-
-        let title = NSMutableAttributedString(
-            string: meetingName,
-            attributes: [
-                .font: font,
-                .foregroundColor: color,
-            ]
-        )
-        title.append(
-            NSAttributedString(
-                string: " \(timePhrase)",
-                attributes: [
-                    .font: timeFont,
-                    .foregroundColor: color,
-                ]
-            )
-        )
-        return title
+    private func renderLabelImage<V: View>(_ content: V) -> NSImage? {
+        let renderer = ImageRenderer(content: content)
+        renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
+        guard let image = renderer.nsImage else { return nil }
+        image.isTemplate = false
+        return image
     }
 
     private func statusItemToolTip(fallback: String) -> String {
@@ -136,15 +117,6 @@ final class StatusItemController: NSObject {
             return meeting.title
         }
         return "\(meeting.title) \(phrase)"
-    }
-
-    private func renderPillImage(meetingName: String, timePhrase: String) -> NSImage? {
-        let view = MenuBarPill(meetingName: meetingName, timePhrase: timePhrase)
-        let renderer = ImageRenderer(content: view)
-        renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
-        guard let image = renderer.nsImage else { return nil }
-        image.isTemplate = false
-        return image
     }
 
     private func truncatedMenuEventName(_ name: String) -> String {
