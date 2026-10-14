@@ -5,6 +5,7 @@ import Foundation
 
 struct MeetingSnapshot: Equatable {
     let eventIdentifier: String
+    let calendarItemIdentifier: String
     let title: String
     let start: Date
     let end: Date
@@ -71,10 +72,37 @@ final class MeetingMonitor: ObservableObject {
 
     func openCalendar() {
         guard let meeting else { return }
-        let stamp = meeting.start.timeIntervalSinceReferenceDate
-        if let url = URL(string: "calshow:\(stamp)") {
+        if let url = Self.calendarEventURL(
+            start: meeting.start,
+            calendarItemIdentifier: meeting.calendarItemIdentifier
+        ) {
+            NSWorkspace.shared.open(url)
+            return
+        }
+        if let url = URL(string: "ical://") {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    /// macOS Calendar.app deep link (Sonoma+). `calshow:` is iOS-only and is not registered on macOS.
+    private static func calendarEventURL(start: Date, calendarItemIdentifier: String) -> URL? {
+        guard !calendarItemIdentifier.isEmpty else { return nil }
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
+        let dateString = formatter.string(from: start)
+
+        var components = URLComponents()
+        components.scheme = "ical"
+        components.host = "ekevent"
+        components.path = "/\(dateString)/\(calendarItemIdentifier)"
+        components.queryItems = [
+            URLQueryItem(name: "method", value: "show"),
+            URLQueryItem(name: "options", value: "more"),
+        ]
+        return components.url
     }
 
     func openPrivacySettings() {
@@ -207,6 +235,7 @@ final class MeetingMonitor: ObservableObject {
     private static func snapshot(from event: EKEvent) -> MeetingSnapshot {
         MeetingSnapshot(
             eventIdentifier: event.eventIdentifier ?? "",
+            calendarItemIdentifier: event.calendarItemIdentifier,
             title: event.title?.isEmpty == false ? event.title! : "Untitled",
             start: event.startDate,
             end: event.endDate,
