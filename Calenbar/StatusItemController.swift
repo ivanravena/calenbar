@@ -166,7 +166,8 @@ final class StatusItemController: NSObject {
             let dayEvents = monitor.eventsForDay(containing: meeting.start)
             for event in dayEvents {
                 let timeString = event.start.formatted(date: .omitted, time: .shortened)
-                let title = "\(timeString)  \(truncatedMenuEventName(event.title))"
+                let title =
+                    "\(timeString)  \(event.menuDurationLabel)  \(truncatedMenuEventName(event.title))"
                 let item = NSMenuItem(
                     title: title,
                     action: #selector(eventMenuItemActivated(_:)),
