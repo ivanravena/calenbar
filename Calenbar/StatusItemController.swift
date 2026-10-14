@@ -138,8 +138,8 @@ final class StatusItemController: NSObject {
         systemSymbolName: String,
         accessibilityDescription: String
     ) -> NSImage? {
-        let pointSize = NSFont.menuFont(ofSize: NSFont.smallSystemFontSize).pointSize
-        let configuration = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .regular)
+        let pointSize = NSFont.menuFont(ofSize: NSFont.systemFontSize).pointSize
+        let configuration = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .semibold)
         guard let symbol = NSImage(
             systemSymbolName: systemSymbolName,
             accessibilityDescription: accessibilityDescription
@@ -148,6 +148,32 @@ final class StatusItemController: NSObject {
         }
         symbol.isTemplate = true
         return symbol
+    }
+
+    private func applyMenuEventIndicator(
+        to item: NSMenuItem,
+        event: MeetingSnapshot,
+        nextUpcomingInMenu: MeetingSnapshot?
+    ) {
+        item.state = .off
+        item.image = nil
+
+        guard let nextUpcomingInMenu, eventsMatch(event, nextUpcomingInMenu) else { return }
+
+        item.image = upcomingEventMenuIcon()
+    }
+
+    private func upcomingEventMenuIcon() -> NSImage? {
+        if let upcoming = templateMenuSymbol(
+            systemSymbolName: "upcoming",
+            accessibilityDescription: "Upcoming"
+        ) {
+            return upcoming
+        }
+        return templateMenuSymbol(
+            systemSymbolName: MenuSymbols.upcomingEvent,
+            accessibilityDescription: "Upcoming"
+        )
     }
 
     private func templateCalendarIcon() -> NSImage? {
@@ -198,8 +224,8 @@ final class StatusItemController: NSObject {
             ).target = self
         } else if let meeting = monitor.meeting {
             let now = Date()
-            let menuHighlight = monitor.inProgressMeeting ?? meeting
             let dayEvents = monitor.eventsForDay(containing: meeting.start)
+            let nextUpcomingInMenu = dayEvents.first { $0.start > now }
             for event in dayEvents {
                 let timeString = event.start.formatted(date: .omitted, time: .shortened)
                 let title = "\(timeString)  \(truncatedMenuEventName(event.title))"
@@ -211,17 +237,6 @@ final class StatusItemController: NSObject {
                 item.target = self
                 item.representedObject = event
                 item.isEnabled = true
-                let isFeatured = eventsMatch(event, menuHighlight)
-                if isFeatured {
-                    if let inProgress = monitor.inProgressMeeting, eventsMatch(event, inProgress) {
-                        item.state = .on
-                    } else {
-                        item.image = templateMenuSymbol(
-                            systemSymbolName: MenuSymbols.upcomingEvent,
-                            accessibilityDescription: "Upcoming"
-                        )
-                    }
-                }
                 let isPast = event.end <= now
                 let menuFont = NSFont.menuFont(ofSize: NSFont.systemFontSize)
                 if isPast {
@@ -241,6 +256,11 @@ final class StatusItemController: NSObject {
                         ]
                     )
                 }
+                applyMenuEventIndicator(
+                    to: item,
+                    event: event,
+                    nextUpcomingInMenu: nextUpcomingInMenu
+                )
                 menu.addItem(item)
             }
             if dayEvents.isEmpty {
