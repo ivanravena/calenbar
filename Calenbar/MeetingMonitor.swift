@@ -27,6 +27,8 @@ final class MeetingMonitor: ObservableObject {
     @Published private(set) var access: CalendarAccess = .unknown
     @Published private(set) var labelText: String = "Calendar"
     @Published private(set) var meetingNameText: String?
+    /// Truncated name shown in the menu bar next to the time phrase.
+    @Published private(set) var menuBarNameText: String?
     @Published private(set) var timePhraseText: String = ""
     @Published private(set) var isUrgent: Bool = false
 
@@ -140,6 +142,7 @@ final class MeetingMonitor: ObservableObject {
             meeting = nil
             inProgressMeeting = nil
             meetingNameText = nil
+            menuBarNameText = nil
             timePhraseText = ""
             labelText = access == .denied ? "Calendar access off" : "Calendar"
             isUrgent = false
@@ -182,6 +185,7 @@ final class MeetingMonitor: ObservableObject {
             let timePhrase = Self.phrase(until: meeting.start)
             let menuBarName = Self.truncatedMenuBarEventName(name)
             meetingNameText = name
+            menuBarNameText = menuBarName
             timePhraseText = timePhrase
             labelText = "\(menuBarName) \(timePhrase)"
             isUrgent = Self.isUrgent(
@@ -193,6 +197,7 @@ final class MeetingMonitor: ObservableObject {
             )
         } else {
             meetingNameText = nil
+            menuBarNameText = nil
             timePhraseText = ""
             labelText = "Calendar"
             isUrgent = false
