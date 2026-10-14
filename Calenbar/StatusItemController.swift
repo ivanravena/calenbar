@@ -64,9 +64,9 @@ final class StatusItemController: NSObject {
             button.image = renderPillImage(text: text)
             button.imagePosition = .imageOnly
         } else {
-            button.image = nil
+            button.image = NSImage(systemSymbolName: "calendar", accessibilityDescription: "Calendar")
             button.title = text
-            button.imagePosition = .noImage
+            button.imagePosition = .imageLeading
         }
         button.toolTip = text
     }
