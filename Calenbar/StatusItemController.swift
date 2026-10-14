@@ -10,6 +10,11 @@ final class StatusItemController: NSObject {
         static let menuEventNameLimit = 24
     }
 
+    private enum MenuSymbols {
+        /// SF Symbol for the next upcoming event in the day list (replaces the menu checkmark).
+        static let upcomingEvent = "calendar.badge.clock"
+    }
+
     private let monitor: MeetingMonitor
     private var statusItem: NSStatusItem?
     private var cancellables = Set<AnyCancellable>()
@@ -124,6 +129,27 @@ final class StatusItemController: NSObject {
         return String(name.prefix(Metrics.menuEventNameLimit)) + "…"
     }
 
+    private func eventsMatch(_ lhs: MeetingSnapshot, _ rhs: MeetingSnapshot) -> Bool {
+        lhs.eventIdentifier == rhs.eventIdentifier
+            || (lhs.start == rhs.start && lhs.title == rhs.title)
+    }
+
+    private func templateMenuSymbol(
+        systemSymbolName: String,
+        accessibilityDescription: String
+    ) -> NSImage? {
+        let pointSize = NSFont.menuFont(ofSize: NSFont.smallSystemFontSize).pointSize
+        let configuration = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .regular)
+        guard let symbol = NSImage(
+            systemSymbolName: systemSymbolName,
+            accessibilityDescription: accessibilityDescription
+        )?.withSymbolConfiguration(configuration) else {
+            return nil
+        }
+        symbol.isTemplate = true
+        return symbol
+    }
+
     private func templateCalendarIcon() -> NSImage? {
         guard let symbol = NSImage(
             systemSymbolName: "calendar",
@@ -185,10 +211,16 @@ final class StatusItemController: NSObject {
                 item.target = self
                 item.representedObject = event
                 item.isEnabled = true
-                let isFeatured = event.eventIdentifier == menuHighlight.eventIdentifier
-                    || (event.start == menuHighlight.start && event.title == menuHighlight.title)
+                let isFeatured = eventsMatch(event, menuHighlight)
                 if isFeatured {
-                    item.state = .on
+                    if let inProgress = monitor.inProgressMeeting, eventsMatch(event, inProgress) {
+                        item.state = .on
+                    } else {
+                        item.image = templateMenuSymbol(
+                            systemSymbolName: MenuSymbols.upcomingEvent,
+                            accessibilityDescription: "Upcoming"
+                        )
+                    }
                 }
                 let isPast = event.end <= now
                 let menuFont = NSFont.menuFont(ofSize: NSFont.systemFontSize)

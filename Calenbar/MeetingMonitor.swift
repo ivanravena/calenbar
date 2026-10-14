@@ -22,7 +22,7 @@ enum CalendarAccess: Equatable {
 final class MeetingMonitor: ObservableObject {
     /// Menu bar and primary actions (rolls to next meeting after join grace).
     @Published private(set) var meeting: MeetingSnapshot?
-    /// Meeting in progress now, if any (menu checkmark).
+    /// Meeting in progress now, if any (menu checkmark; upcoming events use a clock badge icon).
     @Published private(set) var inProgressMeeting: MeetingSnapshot?
     @Published private(set) var access: CalendarAccess = .unknown
     @Published private(set) var labelText: String = "Calendar"
