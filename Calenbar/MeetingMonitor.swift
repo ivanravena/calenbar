@@ -70,11 +70,10 @@ final class MeetingMonitor: ObservableObject {
         refresh()
     }
 
-    func openCalendar() {
-        guard let target = inProgressMeeting ?? meeting else { return }
+    func openEvent(_ event: MeetingSnapshot) {
         if let url = Self.calendarEventURL(
-            start: target.start,
-            calendarItemIdentifier: target.calendarItemIdentifier
+            start: event.start,
+            calendarItemIdentifier: event.calendarItemIdentifier
         ) {
             NSWorkspace.shared.open(url)
             return
@@ -82,6 +81,11 @@ final class MeetingMonitor: ObservableObject {
         if let url = URL(string: "ical://") {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    func openCalendar() {
+        guard let target = inProgressMeeting ?? meeting else { return }
+        openEvent(target)
     }
 
     /// macOS Calendar.app deep link (Sonoma+). `calshow:` is iOS-only and is not registered on macOS.
