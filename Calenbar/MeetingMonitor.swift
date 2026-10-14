@@ -71,10 +71,10 @@ final class MeetingMonitor: ObservableObject {
     }
 
     func openCalendar() {
-        guard let meeting else { return }
+        guard let target = inProgressMeeting ?? meeting else { return }
         if let url = Self.calendarEventURL(
-            start: meeting.start,
-            calendarItemIdentifier: meeting.calendarItemIdentifier
+            start: target.start,
+            calendarItemIdentifier: target.calendarItemIdentifier
         ) {
             NSWorkspace.shared.open(url)
             return
