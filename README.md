@@ -24,6 +24,6 @@ If Xcode reports an architecture mismatch, use **Product → Clean Build Folder*
 
 ## Behavior
 
-- Status item: full `[Meeting name] in X time` (plain text), or a yellow pill when the meeting starts in under 10 minutes or is in progress. Long titles stay visible in the menu bar; when space is tight, collapse rules hide the event name and show only the time phrase, then a calendar icon (pill icon when urgent).
+- Status item: always shows the full `[Meeting name] in X time` line (plain text with a calendar icon), or a yellow pill with the same text when the meeting starts in under 10 minutes or is in progress.
 - Hidden when there are no upcoming meetings (after access is granted).
 - Click the item for details, **Open in Calendar**, or **Quit**.

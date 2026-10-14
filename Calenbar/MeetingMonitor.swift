@@ -127,59 +127,6 @@ final class MeetingMonitor: ObservableObject {
         }
     }
 
-    var supportsCollapse: Bool {
-        meeting != nil
-    }
-
-    func statusItemDisplay(for level: MenuBarCollapseLevel) -> StatusItemDisplay {
-        let toolTip = labelText
-
-        guard supportsCollapse else {
-            return StatusItemDisplay(style: .text(labelText), toolTip: toolTip)
-        }
-
-        if isUrgent {
-            switch level {
-            case .full:
-                return StatusItemDisplay(style: .pill(text: labelText), toolTip: toolTip)
-            case .timeOnly:
-                return StatusItemDisplay(style: .pill(text: timePhraseText), toolTip: toolTip)
-            case .iconOnly:
-                return StatusItemDisplay(style: .pillIcon, toolTip: toolTip)
-            }
-        }
-
-        switch level {
-        case .full:
-            return StatusItemDisplay(style: .text(labelText), toolTip: toolTip)
-        case .timeOnly:
-            return StatusItemDisplay(style: .text(timePhraseText), toolTip: toolTip)
-        case .iconOnly:
-            return StatusItemDisplay(style: .templateIcon, toolTip: toolTip)
-        }
-    }
-
-    func measuredWidth(for level: MenuBarCollapseLevel) -> CGFloat {
-        guard supportsCollapse else {
-            return MenuBarLayoutMetrics.textWidth(labelText, urgent: false)
-                + MenuBarLayoutMetrics.leadingIconExtraWidth
-        }
-
-        if isUrgent {
-            return MenuBarLayoutMetrics.pillWidth(
-                fullLabel: labelText,
-                timePhrase: timePhraseText,
-                level: level
-            )
-        }
-
-        return MenuBarLayoutMetrics.plainTextWidth(
-            fullLabel: labelText,
-            timePhrase: timePhraseText,
-            level: level
-        )
-    }
-
     private static func isRelevant(_ event: EKEvent, now: Date) -> Bool {
         guard !event.isAllDay, event.status != .canceled, event.endDate > now else {
             return false
