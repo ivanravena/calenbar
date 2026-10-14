@@ -81,9 +81,9 @@ final class StatusItemController: NSObject {
 
         switch display.style {
         case .text(let text):
+            button.image = templateCalendarIcon()
             button.title = text
-            button.image = nil
-            button.imagePosition = .noImage
+            button.imagePosition = .imageLeading
         case .pill(let text):
             button.title = ""
             button.image = renderPillImage(content: .text(text))

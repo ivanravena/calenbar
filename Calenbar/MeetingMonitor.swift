@@ -162,6 +162,7 @@ final class MeetingMonitor: ObservableObject {
     func measuredWidth(for level: MenuBarCollapseLevel) -> CGFloat {
         guard supportsCollapse else {
             return MenuBarLayoutMetrics.textWidth(labelText, urgent: false)
+                + MenuBarLayoutMetrics.leadingIconExtraWidth
         }
 
         if isUrgent {
@@ -197,15 +198,14 @@ final class MeetingMonitor: ObservableObject {
         let minutes = Int(seconds / 60)
         if minutes < 60 {
             let shown = max(minutes, 1)
-            return shown == 1 ? "in 1 minute" : "in \(shown) minutes"
+            return "in \(shown) min"
         }
 
         let hours = minutes / 60
         let remainder = minutes % 60
-        let hourPart = hours == 1 ? "1 hour" : "\(hours) hours"
+        let hourPart = "\(hours) h"
         guard remainder > 0 else { return "in \(hourPart)" }
-        let minutePart = remainder == 1 ? "1 minute" : "\(remainder) minutes"
-        return "in \(hourPart) \(minutePart)"
+        return "in \(hourPart) \(remainder) min"
     }
 
     private static func truncated(_ title: String) -> String {

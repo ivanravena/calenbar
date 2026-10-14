@@ -59,9 +59,9 @@ enum MenuBarLayoutMetrics {
     static func plainTextWidth(fullLabel: String, timePhrase: String, level: MenuBarCollapseLevel) -> CGFloat {
         switch level {
         case .full:
-            return textWidth(fullLabel, urgent: false)
+            return textWidth(fullLabel, urgent: false) + leadingIconExtraWidth
         case .timeOnly:
-            return textWidth(timePhrase, urgent: false)
+            return textWidth(timePhrase, urgent: false) + leadingIconExtraWidth
         case .iconOnly:
             return templateIconWidth
         }
@@ -79,6 +79,7 @@ enum MenuBarLayoutMetrics {
     }
 
     static let templateIconWidth: CGFloat = 18
+    static let leadingIconExtraWidth: CGFloat = templateIconWidth + 4
     static let pillHorizontalPadding: CGFloat = 16
     static let pillIconWidth: CGFloat = 24
 }
