@@ -10,6 +10,11 @@ final class StatusItemController: NSObject {
         static let menuEventNameLimit = 24
     }
 
+    private enum MenuSymbols {
+        /// SF Symbol for the next upcoming event in the day list (replaces the menu checkmark).
+        static let upcomingEvent = "calendar.badge.clock"
+    }
+
     private let monitor: MeetingMonitor
     private var statusItem: NSStatusItem?
     private var cancellables = Set<AnyCancellable>()
@@ -124,6 +129,53 @@ final class StatusItemController: NSObject {
         return String(name.prefix(Metrics.menuEventNameLimit)) + "…"
     }
 
+    private func eventsMatch(_ lhs: MeetingSnapshot, _ rhs: MeetingSnapshot) -> Bool {
+        lhs.eventIdentifier == rhs.eventIdentifier
+            || (lhs.start == rhs.start && lhs.title == rhs.title)
+    }
+
+    private func templateMenuSymbol(
+        systemSymbolName: String,
+        accessibilityDescription: String
+    ) -> NSImage? {
+        let pointSize = NSFont.menuFont(ofSize: NSFont.systemFontSize).pointSize
+        let configuration = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .semibold)
+        guard let symbol = NSImage(
+            systemSymbolName: systemSymbolName,
+            accessibilityDescription: accessibilityDescription
+        )?.withSymbolConfiguration(configuration) else {
+            return nil
+        }
+        symbol.isTemplate = true
+        return symbol
+    }
+
+    private func applyMenuEventIndicator(
+        to item: NSMenuItem,
+        event: MeetingSnapshot,
+        nextUpcomingInMenu: MeetingSnapshot?
+    ) {
+        item.state = .off
+        item.image = nil
+
+        guard let nextUpcomingInMenu, eventsMatch(event, nextUpcomingInMenu) else { return }
+
+        item.image = upcomingEventMenuIcon()
+    }
+
+    private func upcomingEventMenuIcon() -> NSImage? {
+        if let upcoming = templateMenuSymbol(
+            systemSymbolName: "upcoming",
+            accessibilityDescription: "Upcoming"
+        ) {
+            return upcoming
+        }
+        return templateMenuSymbol(
+            systemSymbolName: MenuSymbols.upcomingEvent,
+            accessibilityDescription: "Upcoming"
+        )
+    }
+
     private func templateCalendarIcon() -> NSImage? {
         guard let symbol = NSImage(
             systemSymbolName: "calendar",
@@ -172,8 +224,8 @@ final class StatusItemController: NSObject {
             ).target = self
         } else if let meeting = monitor.meeting {
             let now = Date()
-            let menuHighlight = monitor.inProgressMeeting ?? meeting
             let dayEvents = monitor.eventsForDay(containing: meeting.start)
+            let nextUpcomingInMenu = dayEvents.first { $0.start > now }
             for event in dayEvents {
                 let timeString = event.start.formatted(date: .omitted, time: .shortened)
                 let title = "\(timeString)  \(truncatedMenuEventName(event.title))"
@@ -185,11 +237,6 @@ final class StatusItemController: NSObject {
                 item.target = self
                 item.representedObject = event
                 item.isEnabled = true
-                let isFeatured = event.eventIdentifier == menuHighlight.eventIdentifier
-                    || (event.start == menuHighlight.start && event.title == menuHighlight.title)
-                if isFeatured {
-                    item.state = .on
-                }
                 let isPast = event.end <= now
                 let menuFont = NSFont.menuFont(ofSize: NSFont.systemFontSize)
                 if isPast {
@@ -209,6 +256,11 @@ final class StatusItemController: NSObject {
                         ]
                     )
                 }
+                applyMenuEventIndicator(
+                    to: item,
+                    event: event,
+                    nextUpcomingInMenu: nextUpcomingInMenu
+                )
                 menu.addItem(item)
             }
             if dayEvents.isEmpty {
