@@ -226,37 +226,34 @@ final class StatusItemController: NSObject {
             let now = Date()
             let dayEvents = monitor.eventsForDay(containing: meeting.start)
             let nextUpcomingInMenu = dayEvents.first { $0.start > now }
+            let timeStrings = dayEvents.map { $0.start.formatted(date: .omitted, time: .shortened) }
+            let durationStrings = dayEvents.map(\.menuDurationLabel)
+            let columnWidths = MenuEventRow.columnWidths(
+                timeStrings: timeStrings,
+                durationStrings: durationStrings
+            )
             for event in dayEvents {
                 let timeString = event.start.formatted(date: .omitted, time: .shortened)
-                let title =
-                    "\(timeString)  \(event.menuDurationLabel)  \(truncatedMenuEventName(event.title))"
+                let eventTitle = truncatedMenuEventName(event.title)
+                let accessibilityTitle =
+                    "\(timeString)  \(event.menuDurationLabel)  \(eventTitle)"
+                let isPast = event.end <= now
                 let item = NSMenuItem(
-                    title: title,
+                    title: accessibilityTitle,
                     action: #selector(eventMenuItemActivated(_:)),
                     keyEquivalent: ""
+                )
+                item.attributedTitle = MenuEventRow.attributedTitle(
+                    timeText: timeString,
+                    durationText: event.menuDurationLabel,
+                    titleText: eventTitle,
+                    isPast: isPast,
+                    timeColumnWidth: columnWidths.time,
+                    durationColumnWidth: columnWidths.duration
                 )
                 item.target = self
                 item.representedObject = event
                 item.isEnabled = true
-                let isPast = event.end <= now
-                let menuFont = NSFont.menuFont(ofSize: NSFont.systemFontSize)
-                if isPast {
-                    item.attributedTitle = NSAttributedString(
-                        string: title,
-                        attributes: [
-                            .foregroundColor: NSColor.secondaryLabelColor,
-                            .font: menuFont,
-                        ]
-                    )
-                } else {
-                    item.attributedTitle = NSAttributedString(
-                        string: title,
-                        attributes: [
-                            .foregroundColor: NSColor.labelColor,
-                            .font: NSFont.systemFont(ofSize: menuFont.pointSize, weight: .semibold),
-                        ]
-                    )
-                }
                 applyMenuEventIndicator(
                     to: item,
                     event: event,
