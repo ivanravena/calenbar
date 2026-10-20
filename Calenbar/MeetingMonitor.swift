@@ -253,8 +253,8 @@ final class MeetingMonitor: ObservableObject {
             let menuBarName = Self.truncatedMenuBarEventName(joinTarget.title)
             meetingNameText = joinTarget.title
             menuBarNameText = menuBarName
-            timePhraseText = "Join now"
-            labelText = "\(menuBarName) Join now"
+            timePhraseText = "Join"
+            labelText = "\(menuBarName) Join"
             isUrgent = true
         } else if let meeting {
             let name = meeting.title

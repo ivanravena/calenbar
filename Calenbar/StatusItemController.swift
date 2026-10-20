@@ -242,7 +242,7 @@ final class StatusItemController: NSObject {
             let now = Date()
             if monitor.canJoinFeaturedMeeting {
                 let joinItem = menu.addItem(
-                    withTitle: "Join now",
+                    withTitle: "Join",
                     action: #selector(joinFeaturedMeeting),
                     keyEquivalent: ""
                 )

@@ -1,5 +1,25 @@
 import SwiftUI
 
+enum MenuBarLabelTypography {
+    static let joinButtonFont = Font.system(size: 12, weight: .semibold)
+}
+
+struct MenuBarJoinNowCapsule: View {
+    let text: String
+    let font: Font
+
+    var body: some View {
+        Text(text)
+            .font(font)
+            .foregroundStyle(Color.white)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background {
+                Capsule().fill(Color(red: 0.0, green: 0.45, blue: 0.98))
+            }
+    }
+}
+
 struct MenuBarMixedTitle: View {
     let meetingName: String
     let timePhrase: String
@@ -15,14 +35,7 @@ struct MenuBarMixedTitle: View {
             HStack(spacing: 5) {
                 Text(meetingName)
                     .font(nameFont)
-                Text(timePhrase)
-                    .font(timeFont)
-                    .foregroundStyle(Color.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background {
-                        Capsule().fill(Color(red: 0.0, green: 0.45, blue: 0.98))
-                    }
+                MenuBarJoinNowCapsule(text: timePhrase, font: timeFont)
             }
         } else {
             Text(meetingName).font(nameFont)
@@ -76,26 +89,37 @@ struct MenuBarPill: View {
     private enum Typography {
         static let icon = Font.system(size: 11, weight: .semibold)
         static let name = Font.system(size: 12, weight: .regular)
-        static let time = Font.system(size: 12, weight: .semibold)
+        static let time = MenuBarLabelTypography.joinButtonFont
     }
 
     var body: some View {
-        HStack(spacing: Metrics.iconTextSpacing) {
-            Image(systemName: "calendar")
-                .font(Typography.icon)
-            MenuBarMixedTitle(
-                meetingName: meetingName,
-                timePhrase: timePhrase,
-                nameFont: Typography.name,
-                timeFont: Typography.time,
-                joinPhraseAsButton: joinPhraseAsButton
-            )
-        }
-        .foregroundStyle(Color.black)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 2)
-        .background {
-            Capsule().fill(Color.yellow)
+        HStack(spacing: joinPhraseAsButton ? 5 : 0) {
+            HStack(spacing: Metrics.iconTextSpacing) {
+                Image(systemName: "calendar")
+                    .font(Typography.icon)
+                if joinPhraseAsButton {
+                    Text(meetingName)
+                        .font(Typography.name)
+                } else {
+                    MenuBarMixedTitle(
+                        meetingName: meetingName,
+                        timePhrase: timePhrase,
+                        nameFont: Typography.name,
+                        timeFont: Typography.time,
+                        joinPhraseAsButton: false
+                    )
+                }
+            }
+            .foregroundStyle(Color.black)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background {
+                Capsule().fill(Color.yellow)
+            }
+
+            if joinPhraseAsButton {
+                MenuBarJoinNowCapsule(text: timePhrase, font: Typography.time)
+            }
         }
         .fixedSize()
     }
