@@ -10,6 +10,8 @@ struct MeetingSnapshot: Equatable {
     let start: Date
     let end: Date
     let calendarTitle: String
+    /// Video or conference link from the calendar event, when present.
+    let joinURL: URL?
 
     /// Compact duration for status menu rows (e.g. `30 min`, `1 h 15 min`).
     var menuDurationLabel: String {
@@ -51,6 +53,10 @@ final class MeetingMonitor: ObservableObject {
     @Published private(set) var menuBarNameText: String?
     @Published private(set) var timePhraseText: String = ""
     @Published private(set) var isUrgent: Bool = false
+    /// Meeting that should be joined from the menu bar or dropdown, if any.
+    @Published private(set) var joinableMeeting: MeetingSnapshot?
+    /// Whether a join action is available for `joinableMeeting`.
+    @Published private(set) var canJoinFeaturedMeeting: Bool = false
 
     private let store = EKEventStore()
     private var timer: Timer?
@@ -110,6 +116,38 @@ final class MeetingMonitor: ObservableObject {
         openEvent(target)
     }
 
+    func joinMeeting(_ event: MeetingSnapshot) {
+        guard Self.canJoin(event: event, now: Date(), earlyJoin: urgentThreshold),
+              let url = event.joinURL else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    func joinFeaturedMeeting() {
+        guard let joinableMeeting else { return }
+        joinMeeting(joinableMeeting)
+    }
+
+    static func canJoin(event: MeetingSnapshot, now: Date, earlyJoin: TimeInterval) -> Bool {
+        guard let joinURL = event.joinURL, !joinURL.absoluteString.isEmpty else { return false }
+        let opens = event.start.addingTimeInterval(-earlyJoin)
+        return now >= opens && now < event.end
+    }
+
+    static func resolveJoinTarget(
+        inProgress: MeetingSnapshot?,
+        featured: MeetingSnapshot?,
+        now: Date,
+        earlyJoin: TimeInterval
+    ) -> MeetingSnapshot? {
+        if let inProgress, canJoin(event: inProgress, now: now, earlyJoin: earlyJoin) {
+            return inProgress
+        }
+        if let featured, canJoin(event: featured, now: now, earlyJoin: earlyJoin) {
+            return featured
+        }
+        return nil
+    }
+
     /// macOS Calendar.app deep link (Sonoma+). `calshow:` is iOS-only and is not registered on macOS.
     private static func calendarEventURL(start: Date, calendarItemIdentifier: String) -> URL? {
         guard !calendarItemIdentifier.isEmpty else { return nil }
@@ -150,7 +188,7 @@ final class MeetingMonitor: ObservableObject {
         return store.events(matching: predicate)
             .filter { Self.isEligibleForDayMenu($0) }
             .sorted { $0.startDate < $1.startDate }
-            .map { Self.snapshot(from: $0) }
+            .map { Self.snapshot(from: $0, store: store) }
     }
 
     @objc private func storeChanged() {
@@ -166,6 +204,8 @@ final class MeetingMonitor: ObservableObject {
             timePhraseText = ""
             labelText = access == .denied ? "Calendar access off" : "Calendar"
             isUrgent = false
+            canJoinFeaturedMeeting = false
+            joinableMeeting = nil
             return
         }
 
@@ -197,10 +237,26 @@ final class MeetingMonitor: ObservableObject {
                 ?? candidates.min { $0.startDate < $1.startDate }
         }
 
-        inProgressMeeting = inProgressEvent.map { Self.snapshot(from: $0) }
-        meeting = featuredEvent.map { Self.snapshot(from: $0) }
+        inProgressMeeting = inProgressEvent.map { Self.snapshot(from: $0, store: store) }
+        meeting = featuredEvent.map { Self.snapshot(from: $0, store: store) }
 
-        if let meeting {
+        let joinTarget = Self.resolveJoinTarget(
+            inProgress: inProgressMeeting,
+            featured: meeting,
+            now: now,
+            earlyJoin: urgentThreshold
+        )
+        joinableMeeting = joinTarget
+        canJoinFeaturedMeeting = joinTarget != nil
+
+        if let joinTarget {
+            let menuBarName = Self.truncatedMenuBarEventName(joinTarget.title)
+            meetingNameText = joinTarget.title
+            menuBarNameText = menuBarName
+            timePhraseText = "Join now"
+            labelText = "\(menuBarName) Join now"
+            isUrgent = true
+        } else if let meeting {
             let name = meeting.title
             let timePhrase = Self.phrase(until: meeting.start)
             let menuBarName = Self.truncatedMenuBarEventName(name)
@@ -261,15 +317,25 @@ final class MeetingMonitor: ObservableObject {
         return true
     }
 
-    private static func snapshot(from event: EKEvent) -> MeetingSnapshot {
-        MeetingSnapshot(
-            eventIdentifier: event.eventIdentifier ?? "",
-            calendarItemIdentifier: event.calendarItemIdentifier,
-            title: event.title?.isEmpty == false ? event.title! : "Untitled",
-            start: event.startDate,
-            end: event.endDate,
-            calendarTitle: event.calendar.title
+    private static func snapshot(from event: EKEvent, store: EKEventStore) -> MeetingSnapshot {
+        let resolved = resolvedEvent(event, store: store)
+        return MeetingSnapshot(
+            eventIdentifier: resolved.eventIdentifier ?? "",
+            calendarItemIdentifier: resolved.calendarItemIdentifier,
+            title: resolved.title?.isEmpty == false ? resolved.title! : "Untitled",
+            start: resolved.startDate,
+            end: resolved.endDate,
+            calendarTitle: resolved.calendar.title,
+            joinURL: ConferenceLinkResolver.joinURL(from: resolved)
         )
+    }
+
+    private static func resolvedEvent(_ event: EKEvent, store: EKEventStore) -> EKEvent {
+        guard let identifier = event.eventIdentifier,
+              let full = store.event(withIdentifier: identifier) else {
+            return event
+        }
+        return full
     }
 
     private static func truncatedMenuBarEventName(_ name: String) -> String {

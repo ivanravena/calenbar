@@ -47,7 +47,11 @@ final class StatusItemController: NSObject {
             monitor.$labelText,
             monitor.$isUrgent
         )
-        .combineLatest(monitor.$menuBarNameText, monitor.$timePhraseText)
+        .combineLatest(
+            monitor.$menuBarNameText,
+            monitor.$timePhraseText,
+            monitor.$canJoinFeaturedMeeting
+        )
         .receive(on: RunLoop.main)
         .sink { [weak self] _ in
             self?.applyPresentation()
@@ -89,13 +93,22 @@ final class StatusItemController: NSObject {
 
         if let name = monitor.menuBarNameText, !monitor.timePhraseText.isEmpty {
             button.title = ""
+            let joinPhraseAsButton = monitor.canJoinFeaturedMeeting
             if monitor.isUrgent {
                 button.image = renderLabelImage(
-                    MenuBarPill(meetingName: name, timePhrase: monitor.timePhraseText)
+                    MenuBarPill(
+                        meetingName: name,
+                        timePhrase: monitor.timePhraseText,
+                        joinPhraseAsButton: joinPhraseAsButton
+                    )
                 )
             } else {
                 button.image = renderLabelImage(
-                    MenuBarStandardLabel(meetingName: name, timePhrase: monitor.timePhraseText)
+                    MenuBarStandardLabel(
+                        meetingName: name,
+                        timePhrase: monitor.timePhraseText,
+                        joinPhraseAsButton: joinPhraseAsButton
+                    )
                 )
             }
             button.imagePosition = .imageOnly
@@ -117,6 +130,9 @@ final class StatusItemController: NSObject {
 
     private func statusItemToolTip(fallback: String) -> String {
         guard let meeting = monitor.meeting else { return fallback }
+        if monitor.canJoinFeaturedMeeting, let joinable = monitor.joinableMeeting {
+            return "\(joinable.title) — Click to join"
+        }
         let phrase = monitor.timePhraseText
         if phrase.isEmpty {
             return meeting.title
@@ -203,13 +219,13 @@ final class StatusItemController: NSObject {
 
     @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
         guard let event = NSApp.currentEvent else { return }
+        if monitor.canJoinFeaturedMeeting, event.type != .rightMouseUp {
+            monitor.joinFeaturedMeeting()
+            return
+        }
         let menu = buildMenu()
         let location = NSPoint(x: 0, y: sender.bounds.height + 4)
-        if event.type == .rightMouseUp {
-            menu.popUp(positioning: nil, at: location, in: sender)
-        } else {
-            menu.popUp(positioning: nil, at: location, in: sender)
-        }
+        menu.popUp(positioning: nil, at: location, in: sender)
     }
 
     private func buildMenu() -> NSMenu {
@@ -224,6 +240,19 @@ final class StatusItemController: NSObject {
             ).target = self
         } else if let meeting = monitor.meeting {
             let now = Date()
+            if monitor.canJoinFeaturedMeeting {
+                let joinItem = menu.addItem(
+                    withTitle: "Join now",
+                    action: #selector(joinFeaturedMeeting),
+                    keyEquivalent: ""
+                )
+                joinItem.target = self
+                joinItem.image = templateMenuSymbol(
+                    systemSymbolName: "video.fill",
+                    accessibilityDescription: "Join meeting"
+                )
+                menu.addItem(NSMenuItem.separator())
+            }
             let dayEvents = monitor.eventsForDay(containing: meeting.start)
             let nextUpcomingInMenu = dayEvents.first { $0.start > now }
             let timeStrings = dayEvents.map { $0.start.formatted(date: .omitted, time: .shortened) }
@@ -289,6 +318,10 @@ final class StatusItemController: NSObject {
     @objc private func eventMenuItemActivated(_ sender: NSMenuItem) {
         guard let event = sender.representedObject as? MeetingSnapshot else { return }
         monitor.openEvent(event)
+    }
+
+    @objc private func joinFeaturedMeeting() {
+        monitor.joinFeaturedMeeting()
     }
 
     @objc private func openCalendar() {
