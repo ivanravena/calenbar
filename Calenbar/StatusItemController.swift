@@ -130,8 +130,8 @@ final class StatusItemController: NSObject {
 
     private func statusItemToolTip(fallback: String) -> String {
         guard let meeting = monitor.meeting else { return fallback }
-        if monitor.canJoinFeaturedMeeting {
-            return "\(meeting.title) — Click to join"
+        if monitor.canJoinFeaturedMeeting, let joinable = monitor.joinableMeeting {
+            return "\(joinable.title) — Click to join"
         }
         let phrase = monitor.timePhraseText
         if phrase.isEmpty {
@@ -241,11 +241,16 @@ final class StatusItemController: NSObject {
         } else if let meeting = monitor.meeting {
             let now = Date()
             if monitor.canJoinFeaturedMeeting {
-                menu.addItem(
+                let joinItem = menu.addItem(
                     withTitle: "Join now",
                     action: #selector(joinFeaturedMeeting),
                     keyEquivalent: ""
-                ).target = self
+                )
+                joinItem.target = self
+                joinItem.image = templateMenuSymbol(
+                    systemSymbolName: "video.fill",
+                    accessibilityDescription: "Join meeting"
+                )
                 menu.addItem(NSMenuItem.separator())
             }
             let dayEvents = monitor.eventsForDay(containing: meeting.start)

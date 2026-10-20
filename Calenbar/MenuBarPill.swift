@@ -12,15 +12,16 @@ struct MenuBarMixedTitle: View {
             Text(meetingName)
                 .font(nameFont)
         } else if joinPhraseAsButton {
-            HStack(spacing: 4) {
+            HStack(spacing: 5) {
                 Text(meetingName)
                     .font(nameFont)
                 Text(timePhrase)
                     .font(timeFont)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 1)
+                    .foregroundStyle(Color.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
                     .background {
-                        Capsule().fill(Color.accentColor.opacity(0.22))
+                        Capsule().fill(Color(red: 0.0, green: 0.45, blue: 0.98))
                     }
             }
         } else {
