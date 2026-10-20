@@ -10,6 +10,8 @@ struct MeetingSnapshot: Equatable {
     let start: Date
     let end: Date
     let calendarTitle: String
+    /// Video or conference link from the calendar event, when present.
+    let joinURL: URL?
 
     /// Compact duration for status menu rows (e.g. `30 min`, `1 h 15 min`).
     var menuDurationLabel: String {
@@ -51,6 +53,8 @@ final class MeetingMonitor: ObservableObject {
     @Published private(set) var menuBarNameText: String?
     @Published private(set) var timePhraseText: String = ""
     @Published private(set) var isUrgent: Bool = false
+    /// Featured meeting can be joined now (has a link and is in progress).
+    @Published private(set) var canJoinFeaturedMeeting: Bool = false
 
     private let store = EKEventStore()
     private var timer: Timer?
@@ -110,6 +114,22 @@ final class MeetingMonitor: ObservableObject {
         openEvent(target)
     }
 
+    func joinMeeting(_ event: MeetingSnapshot) {
+        guard Self.canJoin(event: event, now: Date()), let url = event.joinURL else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    func joinFeaturedMeeting() {
+        guard let meeting else { return }
+        joinMeeting(meeting)
+    }
+
+    static func canJoin(event: MeetingSnapshot, now: Date) -> Bool {
+        guard let joinURL = event.joinURL else { return false }
+        guard !joinURL.absoluteString.isEmpty else { return false }
+        return now >= event.start && now < event.end
+    }
+
     /// macOS Calendar.app deep link (Sonoma+). `calshow:` is iOS-only and is not registered on macOS.
     private static func calendarEventURL(start: Date, calendarItemIdentifier: String) -> URL? {
         guard !calendarItemIdentifier.isEmpty else { return nil }
@@ -166,6 +186,7 @@ final class MeetingMonitor: ObservableObject {
             timePhraseText = ""
             labelText = access == .denied ? "Calendar access off" : "Calendar"
             isUrgent = false
+            canJoinFeaturedMeeting = false
             return
         }
 
@@ -202,11 +223,13 @@ final class MeetingMonitor: ObservableObject {
 
         if let meeting {
             let name = meeting.title
-            let timePhrase = Self.phrase(until: meeting.start)
+            let joinable = Self.canJoin(event: meeting, now: now)
+            let timePhrase = joinable ? "Join now" : Self.phrase(until: meeting.start)
             let menuBarName = Self.truncatedMenuBarEventName(name)
             meetingNameText = name
             menuBarNameText = menuBarName
             timePhraseText = timePhrase
+            canJoinFeaturedMeeting = joinable
             labelText = "\(menuBarName) \(timePhrase)"
             isUrgent = Self.isUrgent(
                 featured: meeting,
@@ -221,6 +244,7 @@ final class MeetingMonitor: ObservableObject {
             timePhraseText = ""
             labelText = "Calendar"
             isUrgent = false
+            canJoinFeaturedMeeting = false
         }
     }
 
@@ -268,7 +292,8 @@ final class MeetingMonitor: ObservableObject {
             title: event.title?.isEmpty == false ? event.title! : "Untitled",
             start: event.startDate,
             end: event.endDate,
-            calendarTitle: event.calendar.title
+            calendarTitle: event.calendar.title,
+            joinURL: event.url
         )
     }
 
