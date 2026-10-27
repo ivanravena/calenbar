@@ -48,9 +48,12 @@ final class StatusItemController: NSObject {
             monitor.$isUrgent
         )
         .combineLatest(
-            monitor.$menuBarNameText,
-            monitor.$timePhraseText,
-            monitor.$canJoinFeaturedMeeting
+            Publishers.CombineLatest4(
+                monitor.$menuBarNameText,
+                monitor.$timePhraseText,
+                monitor.$showsJoinNow,
+                monitor.$statusItemClickJoins
+            )
         )
         .receive(on: RunLoop.main)
         .sink { [weak self] _ in
@@ -93,7 +96,7 @@ final class StatusItemController: NSObject {
 
         if let name = monitor.menuBarNameText, !monitor.timePhraseText.isEmpty {
             button.title = ""
-            let joinPhraseAsButton = monitor.canJoinFeaturedMeeting
+            let joinPhraseAsButton = monitor.showsJoinNow
             if monitor.isUrgent {
                 button.image = renderLabelImage(
                     MenuBarPill(
@@ -130,7 +133,7 @@ final class StatusItemController: NSObject {
 
     private func statusItemToolTip(fallback: String) -> String {
         guard let meeting = monitor.meeting else { return fallback }
-        if monitor.canJoinFeaturedMeeting, let joinable = monitor.joinableMeeting {
+        if monitor.statusItemClickJoins, let joinable = monitor.joinableMeeting {
             return "\(joinable.title) — Click to join"
         }
         let phrase = monitor.timePhraseText
@@ -219,7 +222,7 @@ final class StatusItemController: NSObject {
 
     @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
         guard let event = NSApp.currentEvent else { return }
-        if monitor.canJoinFeaturedMeeting, event.type != .rightMouseUp {
+        if monitor.statusItemClickJoins, event.type != .rightMouseUp {
             monitor.joinFeaturedMeeting()
             return
         }
@@ -240,7 +243,7 @@ final class StatusItemController: NSObject {
             ).target = self
         } else if let meeting = monitor.meeting {
             let now = Date()
-            if monitor.canJoinFeaturedMeeting {
+            if monitor.showsMenuJoin {
                 let joinItem = menu.addItem(
                     withTitle: "Join",
                     action: #selector(joinFeaturedMeeting),

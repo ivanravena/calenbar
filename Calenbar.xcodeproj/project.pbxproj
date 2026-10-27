@@ -13,6 +13,8 @@
 		A10000010000000000000004 /* MenuBarPill.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000004 /* MenuBarPill.swift */; };
 		A10000010000000000000005 /* MenuEventRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000008 /* MenuEventRow.swift */; };
 		A10000010000000000000006 /* ConferenceLinkResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000009 /* ConferenceLinkResolver.swift */; };
+		A10000010000000000000007 /* MenuBarSchedule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000000A /* MenuBarSchedule.swift */; };
+		A10000010000000000000008 /* MenuBarScheduleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000000B /* MenuBarScheduleTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -25,10 +27,30 @@
 		A10000020000000000000007 /* Calenbar.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Calenbar.entitlements; sourceTree = "<group>"; };
 		A10000020000000000000008 /* MenuEventRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuEventRow.swift; sourceTree = "<group>"; };
 		A10000020000000000000009 /* ConferenceLinkResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConferenceLinkResolver.swift; sourceTree = "<group>"; };
+		A1000002000000000000000A /* MenuBarSchedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarSchedule.swift; sourceTree = "<group>"; };
+		A1000002000000000000000B /* MenuBarScheduleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarScheduleTests.swift; sourceTree = "<group>"; };
+		A1000002000000000000000C /* CalenbarTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CalenbarTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXContainerItemProxy section */
+		A10000090000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A10000070000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A10000050000000000000001;
+			remoteInfo = Calenbar;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		A10000030000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A10000030000000000000003 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -42,6 +64,7 @@
 			isa = PBXGroup;
 			children = (
 				A10000040000000000000002 /* Calenbar */,
+				A10000040000000000000004 /* CalenbarTests */,
 				A10000040000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -55,6 +78,7 @@
 				A10000020000000000000004 /* MenuBarPill.swift */,
 				A10000020000000000000008 /* MenuEventRow.swift */,
 				A10000020000000000000009 /* ConferenceLinkResolver.swift */,
+				A1000002000000000000000A /* MenuBarSchedule.swift */,
 				A10000020000000000000006 /* Info.plist */,
 				A10000020000000000000007 /* Calenbar.entitlements */,
 			);
@@ -65,8 +89,17 @@
 			isa = PBXGroup;
 			children = (
 				A10000020000000000000005 /* Calenbar.app */,
+				A1000002000000000000000C /* CalenbarTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A10000040000000000000004 /* CalenbarTests */ = {
+			isa = PBXGroup;
+			children = (
+				A1000002000000000000000B /* MenuBarScheduleTests.swift */,
+			);
+			path = CalenbarTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -87,6 +120,23 @@
 			productName = Calenbar;
 			productReference = A10000020000000000000005 /* Calenbar.app */;
 			productType = "com.apple.product-type.application";
+		};
+		A10000050000000000000002 /* CalenbarTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000060000000000000004 /* Build configuration list for PBXNativeTarget "CalenbarTests" */;
+			buildPhases = (
+				A10000030000000000000004 /* Sources */,
+				A10000030000000000000003 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A100000A0000000000000001 /* PBXTargetDependency */,
+			);
+			name = CalenbarTests;
+			productName = CalenbarTests;
+			productReference = A1000002000000000000000C /* CalenbarTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -117,6 +167,7 @@
 			projectRoot = "";
 			targets = (
 				A10000050000000000000001 /* Calenbar */,
+				A10000050000000000000002 /* CalenbarTests */,
 			);
 		};
 /* End PBXProject section */
@@ -132,10 +183,27 @@
 				A10000010000000000000004 /* MenuBarPill.swift in Sources */,
 				A10000010000000000000005 /* MenuEventRow.swift in Sources */,
 				A10000010000000000000006 /* ConferenceLinkResolver.swift in Sources */,
+				A10000010000000000000007 /* MenuBarSchedule.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A10000030000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000010000000000000008 /* MenuBarScheduleTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A100000A0000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A10000050000000000000001 /* Calenbar */;
+			targetProxy = A10000090000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A10000080000000000000001 /* Debug */ = {
@@ -224,6 +292,40 @@
 			};
 			name = Release;
 		};
+		A10000080000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.calenbar.menu.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Calenbar.app/Contents/MacOS/Calenbar";
+			};
+			name = Debug;
+		};
+		A10000080000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.calenbar.menu.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Calenbar.app/Contents/MacOS/Calenbar";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -241,6 +343,15 @@
 			buildConfigurations = (
 				A10000080000000000000003 /* Debug */,
 				A10000080000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10000060000000000000004 /* Build configuration list for PBXNativeTarget "CalenbarTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000080000000000000005 /* Debug */,
+				A10000080000000000000006 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

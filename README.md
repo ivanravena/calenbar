@@ -24,6 +24,6 @@ If Xcode reports an architecture mismatch, use **Product → Clean Build Folder*
 
 ## Behavior
 
-- Status item: shows `[Meeting name] in X time` (calendar icon) for the next actionable meeting; the relative time phrase (`in 5 min`, `in 2 h 5 min`, `now`) is semibold. While you are in a meeting, the bar rolls forward to the following event after a short join grace (~2 minutes). Yellow pill when a featured meeting starts in under 10 minutes, or during that join grace for a meeting that just started.
+- Status item: shows the relevant meeting name with a time phrase (calendar icon). Phrases: `in X min` / `in X h Y min` for the next event, `X min left` while a long meeting is in progress, and **Join now** (blue capsule) when the next event starts in 2 minutes or less, or for the first 5 minutes after a meeting with a video link starts. While a meeting is running and the next one is more than 15 minutes away, the bar shows time remaining on the current event; at 15 minutes or less until the next event, it switches to the next event’s countdown. Yellow pill when **Join now** is shown or the displayed countdown is under 10 minutes. Click joins when **Join now** is shown or within the 10-minute early-join window on a countdown; otherwise click opens the menu (Join remains in the menu when a link is available).
 - Hidden when there are no upcoming meetings (after access is granted).
 - Click the item for details, **Open in Calendar**, or **Quit**.
