@@ -7,6 +7,7 @@ enum MenuBarLabelTypography {
 struct MenuBarJoinNowCapsule: View {
     let text: String
     let font: Font
+    var fillColor: Color = AppSettings.defaultJoinNowColor.color
 
     var body: some View {
         Text(text)
@@ -15,7 +16,7 @@ struct MenuBarJoinNowCapsule: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 2)
             .background {
-                Capsule().fill(Color(red: 0.0, green: 0.45, blue: 0.98))
+                Capsule().fill(fillColor)
             }
     }
 }
@@ -26,20 +27,29 @@ struct MenuBarMixedTitle: View {
     let nameFont: Font
     let timeFont: Font
     var joinPhraseAsButton: Bool = false
+    var showsEventTitle: Bool = true
+    var joinNowColor: Color = AppSettings.defaultJoinNowColor.color
 
     var body: some View {
         if timePhrase.isEmpty {
-            Text(meetingName)
-                .font(nameFont)
-        } else if joinPhraseAsButton {
-            HStack(spacing: 5) {
+            if showsEventTitle {
                 Text(meetingName)
                     .font(nameFont)
-                MenuBarJoinNowCapsule(text: timePhrase, font: timeFont)
             }
-        } else {
+        } else if joinPhraseAsButton {
+            HStack(spacing: 5) {
+                if showsEventTitle {
+                    Text(meetingName)
+                        .font(nameFont)
+                }
+                MenuBarJoinNowCapsule(text: timePhrase, font: timeFont, fillColor: joinNowColor)
+            }
+        } else if showsEventTitle {
             Text(meetingName).font(nameFont)
                 + Text(" \(timePhrase)").font(timeFont)
+        } else {
+            Text(timePhrase)
+                .font(timeFont)
         }
     }
 }
@@ -49,6 +59,8 @@ struct MenuBarStandardLabel: View {
     let meetingName: String
     let timePhrase: String
     var joinPhraseAsButton: Bool = false
+    var showsEventTitle: Bool = true
+    var joinNowColor: Color = AppSettings.defaultJoinNowColor.color
 
     private enum Metrics {
         static let iconTextSpacing: CGFloat = 6
@@ -69,7 +81,9 @@ struct MenuBarStandardLabel: View {
                 timePhrase: timePhrase,
                 nameFont: Typography.name,
                 timeFont: Typography.time,
-                joinPhraseAsButton: joinPhraseAsButton
+                joinPhraseAsButton: joinPhraseAsButton,
+                showsEventTitle: showsEventTitle,
+                joinNowColor: joinNowColor
             )
         }
         .foregroundStyle(Color(nsColor: .labelColor))
@@ -81,6 +95,9 @@ struct MenuBarPill: View {
     let meetingName: String
     let timePhrase: String
     var joinPhraseAsButton: Bool = false
+    var showsEventTitle: Bool = true
+    var alertColor: Color = AppSettings.defaultAlertColor.color
+    var joinNowColor: Color = AppSettings.defaultJoinNowColor.color
 
     private enum Metrics {
         static let iconTextSpacing: CGFloat = 6
@@ -98,15 +115,19 @@ struct MenuBarPill: View {
                 Image(systemName: "calendar")
                     .font(Typography.icon)
                 if joinPhraseAsButton {
-                    Text(meetingName)
-                        .font(Typography.name)
+                    if showsEventTitle {
+                        Text(meetingName)
+                            .font(Typography.name)
+                    }
                 } else {
                     MenuBarMixedTitle(
                         meetingName: meetingName,
                         timePhrase: timePhrase,
                         nameFont: Typography.name,
                         timeFont: Typography.time,
-                        joinPhraseAsButton: false
+                        joinPhraseAsButton: false,
+                        showsEventTitle: showsEventTitle,
+                        joinNowColor: joinNowColor
                     )
                 }
             }
@@ -114,11 +135,11 @@ struct MenuBarPill: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 2)
             .background {
-                Capsule().fill(Color.yellow)
+                Capsule().fill(alertColor)
             }
 
             if joinPhraseAsButton {
-                MenuBarJoinNowCapsule(text: timePhrase, font: Typography.time)
+                MenuBarJoinNowCapsule(text: timePhrase, font: Typography.time, fillColor: joinNowColor)
             }
         }
         .fixedSize()

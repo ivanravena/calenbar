@@ -11,13 +11,15 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     private let monitor: MeetingMonitor
+    private let settings: AppSettings
     private var statusItem: NSStatusItem?
     private var cancellables = Set<AnyCancellable>()
     /// Guards `performClick` re-entry while presenting `statusItem.menu`.
     private var isPresentingMenu = false
 
-    init(monitor: MeetingMonitor) {
+    init(monitor: MeetingMonitor, settings: AppSettings) {
         self.monitor = monitor
+        self.settings = settings
         super.init()
         bind()
         observeScreenChanges()
@@ -53,6 +55,17 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         )
         .receive(on: RunLoop.main)
         .sink { [weak self] _ in
+            self?.applyPresentation()
+        }
+        .store(in: &cancellables)
+
+        Publishers.CombineLatest3(
+            settings.$menuBarContentStyle,
+            settings.$alertColor,
+            settings.$joinNowColor
+        )
+        .receive(on: RunLoop.main)
+        .sink { [weak self] _, _, _ in
             self?.applyPresentation()
         }
         .store(in: &cancellables)
@@ -93,20 +106,29 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         if let name = monitor.menuBarNameText, !monitor.timePhraseText.isEmpty {
             button.title = ""
             let joinPhraseAsButton = monitor.showsJoinNow
+            let displayName = settings.showsEventTitle ? name : ""
+            let showsEventTitle = settings.showsEventTitle
+            let alertColor = settings.alertColor.color
+            let joinNowColor = settings.joinNowColor.color
             if monitor.isUrgent {
                 button.image = renderLabelImage(
                     MenuBarPill(
-                        meetingName: name,
+                        meetingName: displayName,
                         timePhrase: monitor.timePhraseText,
-                        joinPhraseAsButton: joinPhraseAsButton
+                        joinPhraseAsButton: joinPhraseAsButton,
+                        showsEventTitle: showsEventTitle,
+                        alertColor: alertColor,
+                        joinNowColor: joinNowColor
                     )
                 )
             } else {
                 button.image = renderLabelImage(
                     MenuBarStandardLabel(
-                        meetingName: name,
+                        meetingName: displayName,
                         timePhrase: monitor.timePhraseText,
-                        joinPhraseAsButton: joinPhraseAsButton
+                        joinPhraseAsButton: joinPhraseAsButton,
+                        showsEventTitle: showsEventTitle,
+                        joinNowColor: joinNowColor
                     )
                 )
             }
@@ -269,6 +291,13 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         }
 
         menu.addItem(NSMenuItem.separator())
+        menu.addItem(MenuSectionHeader.menuItem(title: AppVersion.menuSectionTitle))
+        let settingsItem = menu.addItem(
+            withTitle: "Settings…",
+            action: #selector(openSettings),
+            keyEquivalent: ","
+        )
+        settingsItem.target = self
         menu.addItem(
             withTitle: "Quit Calenbar",
             action: #selector(quit),
@@ -297,6 +326,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     @objc private func openPrivacySettings() {
         monitor.openPrivacySettings()
+    }
+
+    @objc private func openSettings() {
+        SettingsPresenter.show()
     }
 
     @objc private func quit() {

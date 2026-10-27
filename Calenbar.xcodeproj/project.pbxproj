@@ -18,6 +18,9 @@
 		A10000010000000000000009 /* MenuEventList.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000000D /* MenuEventList.swift */; };
 		A1000001000000000000000A /* MenuEventListTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000000E /* MenuEventListTests.swift */; };
 		A10000010000000000000010 /* MenuSectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000010 /* MenuSectionHeader.swift */; };
+		A10000010000000000000011 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000011 /* AppSettings.swift */; };
+		A10000010000000000000012 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000012 /* SettingsView.swift */; };
+		A10000010000000000000013 /* SettingsPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000013 /* SettingsPresenter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -36,6 +39,9 @@
 		A1000002000000000000000D /* MenuEventList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuEventList.swift; sourceTree = "<group>"; };
 		A1000002000000000000000E /* MenuEventListTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuEventListTests.swift; sourceTree = "<group>"; };
 		A10000020000000000000010 /* MenuSectionHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuSectionHeader.swift; sourceTree = "<group>"; };
+		A10000020000000000000011 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		A10000020000000000000012 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A10000020000000000000013 /* SettingsPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPresenter.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXContainerItemProxy section */
@@ -87,6 +93,9 @@
 				A1000002000000000000000A /* MenuBarSchedule.swift */,
 				A1000002000000000000000D /* MenuEventList.swift */,
 				A10000020000000000000010 /* MenuSectionHeader.swift */,
+				A10000020000000000000011 /* AppSettings.swift */,
+				A10000020000000000000012 /* SettingsView.swift */,
+				A10000020000000000000013 /* SettingsPresenter.swift */,
 				A10000020000000000000006 /* Info.plist */,
 				A10000020000000000000007 /* Calenbar.entitlements */,
 			);
@@ -195,6 +204,9 @@
 				A10000010000000000000007 /* MenuBarSchedule.swift in Sources */,
 				A10000010000000000000009 /* MenuEventList.swift in Sources */,
 				A10000010000000000000010 /* MenuSectionHeader.swift in Sources */,
+				A10000010000000000000011 /* AppSettings.swift in Sources */,
+				A10000010000000000000012 /* SettingsView.swift in Sources */,
+				A10000010000000000000013 /* SettingsPresenter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
