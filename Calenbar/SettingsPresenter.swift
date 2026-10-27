@@ -1,61 +1,47 @@
 import AppKit
+import SwiftUI
+
+@MainActor
+final class SettingsWindowDelegate: NSObject, NSWindowDelegate {
+    func windowWillClose(_ notification: Notification) {
+        NSApp.setActivationPolicy(.accessory)
+    }
+}
 
 @MainActor
 enum SettingsPresenter {
-    private static weak var trackedSettingsWindow: NSWindow?
+    private static let windowIdentifier = NSUserInterfaceItemIdentifier("calenbar.settings")
+    private static let windowSize = NSSize(width: 680, height: 460)
+
+    private static var window: NSWindow?
+    private static let windowDelegate = SettingsWindowDelegate()
 
     static func show() {
+        let settingsWindow = window ?? makeWindow()
+        window = settingsWindow
+
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-
-        DispatchQueue.main.async {
-            let settingsWindow = resolveSettingsWindow()
-            settingsWindow?.makeKeyAndOrderFront(nil)
-            trackedSettingsWindow = settingsWindow
-        }
+        settingsWindow.center()
+        settingsWindow.makeKeyAndOrderFront(nil)
     }
 
-    static func handleWindowWillClose(_ window: NSWindow) {
-        if window === trackedSettingsWindow || isSettingsWindow(window) {
-            trackedSettingsWindow = nil
-        }
-        DispatchQueue.main.async {
-            restoreAccessoryPolicyIfNeeded()
-        }
-    }
+    private static func makeWindow() -> NSWindow {
+        let hostingController = NSHostingController(
+            rootView: SettingsView(settings: AppSettings.shared)
+        )
 
-    private static func restoreAccessoryPolicyIfNeeded() {
-        let visibleAppWindows = NSApp.windows.filter { $0.isVisible && !$0.isSheet }
-        if visibleAppWindows.isEmpty {
-            NSApp.setActivationPolicy(.accessory)
-        }
-    }
-
-    private static func resolveSettingsWindow() -> NSWindow? {
-        if let tracked = trackedSettingsWindow, tracked.isVisible || NSApp.windows.contains(tracked) {
-            return tracked
-        }
-
-        if let match = NSApp.windows.first(where: isSettingsWindow) {
-            return match
-        }
-
-        return NSApp.windows.last(where: { $0.canBecomeKey })
-    }
-
-    private static func isSettingsWindow(_ window: NSWindow) -> Bool {
-        if window === trackedSettingsWindow {
-            return true
-        }
-        let title = window.title
-        if title.localizedCaseInsensitiveContains("settings") {
-            return true
-        }
-        if let identifier = window.identifier?.rawValue,
-           identifier.localizedCaseInsensitiveContains("settings") {
-            return true
-        }
-        return false
+        let settingsWindow = NSWindow(
+            contentRect: NSRect(origin: .zero, size: windowSize),
+            styleMask: [.titled, .closable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        settingsWindow.identifier = windowIdentifier
+        settingsWindow.title = "Settings"
+        settingsWindow.contentViewController = hostingController
+        settingsWindow.isReleasedWhenClosed = false
+        settingsWindow.delegate = windowDelegate
+        return settingsWindow
     }
 }
