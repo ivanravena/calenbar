@@ -57,7 +57,6 @@ final class MeetingMonitor: ObservableObject {
     @Published private(set) var joinableMeeting: MeetingSnapshot?
     @Published private(set) var showsJoinNow: Bool = false
     @Published private(set) var showsMenuJoin: Bool = false
-    @Published private(set) var statusItemClickJoins: Bool = false
 
     private let store = EKEventStore()
     private var pollTimer: Timer?
@@ -122,9 +121,7 @@ final class MeetingMonitor: ObservableObject {
         let now = Date()
         guard MenuBarSchedule.canJoin(event: event, now: now, earlyJoin: MenuBarSchedule.earlyJoinWindow),
               let url = event.joinURL else { return }
-        joinNowSuppressUntil[event.eventIdentifier] = event.start.addingTimeInterval(
-            MenuBarSchedule.joinNowHoldAfterStart
-        )
+        suppressJoinNow(for: event)
         NSWorkspace.shared.open(url)
         refresh()
     }
@@ -132,6 +129,18 @@ final class MeetingMonitor: ObservableObject {
     func joinFeaturedMeeting() {
         guard let joinableMeeting else { return }
         joinMeeting(joinableMeeting)
+    }
+
+    func dismissJoinNow() {
+        guard showsJoinNow, let meeting else { return }
+        suppressJoinNow(for: meeting)
+        refresh()
+    }
+
+    private func suppressJoinNow(for event: MeetingSnapshot) {
+        joinNowSuppressUntil[event.eventIdentifier] = event.start.addingTimeInterval(
+            MenuBarSchedule.joinNowHoldAfterStart
+        )
     }
 
     /// macOS Calendar.app deep link (Sonoma+). `calshow:` is iOS-only and is not registered on macOS.
@@ -193,7 +202,6 @@ final class MeetingMonitor: ObservableObject {
             joinableMeeting = nil
             showsJoinNow = false
             showsMenuJoin = false
-            statusItemClickJoins = false
             boundaryTimer?.invalidate()
             boundaryTimer = nil
             return
@@ -243,10 +251,6 @@ final class MeetingMonitor: ObservableObject {
 
             let earlyJoin = MenuBarSchedule.earlyJoinWindow
             let displayed = schedule.displayedMeeting
-            statusItemClickJoins = showsJoinNow
-                || (schedule.phraseKind == .untilStart
-                    && MenuBarSchedule.canJoin(event: displayed, now: now, earlyJoin: earlyJoin))
-
             showsMenuJoin = showsJoinNow
                 || MenuBarSchedule.canJoin(event: displayed, now: now, earlyJoin: earlyJoin)
                 || (schedule.phraseKind == .remaining
@@ -269,7 +273,6 @@ final class MeetingMonitor: ObservableObject {
             isUrgent = false
             showsJoinNow = false
             showsMenuJoin = false
-            statusItemClickJoins = false
             joinableMeeting = nil
         }
 

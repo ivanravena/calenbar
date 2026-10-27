@@ -37,9 +37,9 @@ enum MenuEventRow {
         durationColumnWidth: CGFloat
     ) -> NSAttributedString {
         let pointSize = NSFont.systemFontSize
-        let weight: NSFont.Weight = isPast ? .regular : .semibold
-        let textFont = NSFont.systemFont(ofSize: pointSize, weight: weight)
-        let digitFont = NSFont.monospacedDigitSystemFont(ofSize: pointSize, weight: weight)
+        let titleWeight: NSFont.Weight = isPast ? .regular : .semibold
+        let textFont = NSFont.systemFont(ofSize: pointSize, weight: titleWeight)
+        let digitFont = NSFont.monospacedDigitSystemFont(ofSize: pointSize, weight: .semibold)
         let color = isPast ? NSColor.secondaryLabelColor : NSColor.labelColor
 
         // `NSMenuItem` ignores tab stops; align with measured space padding instead.

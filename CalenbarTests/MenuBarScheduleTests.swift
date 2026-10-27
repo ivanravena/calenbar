@@ -175,6 +175,26 @@ final class MenuBarScheduleTests: XCTestCase {
         XCTAssertEqual(during?.phraseKind, .remaining)
     }
 
+    func testJoinNowSuppressionSkipsNextWithinTwoMinutes() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        let next = meeting(
+            id: "next",
+            title: "Soon",
+            start: now.addingTimeInterval(90),
+            joinURL: joinURL
+        )
+
+        let result = MenuBarSchedule.resolve(
+            running: nil,
+            next: next,
+            now: now,
+            isJoinNowSuppressed: { $0.eventIdentifier == "next" }
+        )
+
+        XCTAssertEqual(result?.phraseKind, .untilStart)
+        XCTAssertEqual(result?.phraseText, "in 1 min")
+    }
+
     func testJoinNowSuppressionSkipsRunningHold() {
         let now = Date(timeIntervalSince1970: 1_000_000)
         let running = meeting(

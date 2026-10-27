@@ -3,21 +3,18 @@ import Combine
 import SwiftUI
 
 @MainActor
-final class StatusItemController: NSObject {
+final class StatusItemController: NSObject, NSMenuDelegate {
     private enum Metrics {
         /// Extra space between the calendar symbol and the title on the status item.
         static let iconTitleSpacing: CGFloat = 6
         static let menuEventNameLimit = 24
     }
 
-    private enum MenuSymbols {
-        /// SF Symbol for the next upcoming event in the day list (replaces the menu checkmark).
-        static let upcomingEvent = "calendar.badge.clock"
-    }
-
     private let monitor: MeetingMonitor
     private var statusItem: NSStatusItem?
     private var cancellables = Set<AnyCancellable>()
+    /// Guards `performClick` re-entry while presenting `statusItem.menu`.
+    private var isPresentingMenu = false
 
     init(monitor: MeetingMonitor) {
         self.monitor = monitor
@@ -48,11 +45,10 @@ final class StatusItemController: NSObject {
             monitor.$isUrgent
         )
         .combineLatest(
-            Publishers.CombineLatest4(
+            Publishers.CombineLatest3(
                 monitor.$menuBarNameText,
                 monitor.$timePhraseText,
-                monitor.$showsJoinNow,
-                monitor.$statusItemClickJoins
+                monitor.$showsJoinNow
             )
         )
         .receive(on: RunLoop.main)
@@ -133,7 +129,7 @@ final class StatusItemController: NSObject {
 
     private func statusItemToolTip(fallback: String) -> String {
         guard let meeting = monitor.meeting else { return fallback }
-        if monitor.statusItemClickJoins, let joinable = monitor.joinableMeeting {
+        if monitor.showsJoinNow, let joinable = monitor.joinableMeeting {
             return "\(joinable.title) — Click to join"
         }
         let phrase = monitor.timePhraseText
@@ -146,53 +142,6 @@ final class StatusItemController: NSObject {
     private func truncatedMenuEventName(_ name: String) -> String {
         guard name.count > Metrics.menuEventNameLimit else { return name }
         return String(name.prefix(Metrics.menuEventNameLimit)) + "…"
-    }
-
-    private func eventsMatch(_ lhs: MeetingSnapshot, _ rhs: MeetingSnapshot) -> Bool {
-        lhs.eventIdentifier == rhs.eventIdentifier
-            || (lhs.start == rhs.start && lhs.title == rhs.title)
-    }
-
-    private func templateMenuSymbol(
-        systemSymbolName: String,
-        accessibilityDescription: String
-    ) -> NSImage? {
-        let pointSize = NSFont.menuFont(ofSize: NSFont.systemFontSize).pointSize
-        let configuration = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .semibold)
-        guard let symbol = NSImage(
-            systemSymbolName: systemSymbolName,
-            accessibilityDescription: accessibilityDescription
-        )?.withSymbolConfiguration(configuration) else {
-            return nil
-        }
-        symbol.isTemplate = true
-        return symbol
-    }
-
-    private func applyMenuEventIndicator(
-        to item: NSMenuItem,
-        event: MeetingSnapshot,
-        nextUpcomingInMenu: MeetingSnapshot?
-    ) {
-        item.state = .off
-        item.image = nil
-
-        guard let nextUpcomingInMenu, eventsMatch(event, nextUpcomingInMenu) else { return }
-
-        item.image = upcomingEventMenuIcon()
-    }
-
-    private func upcomingEventMenuIcon() -> NSImage? {
-        if let upcoming = templateMenuSymbol(
-            systemSymbolName: "upcoming",
-            accessibilityDescription: "Upcoming"
-        ) {
-            return upcoming
-        }
-        return templateMenuSymbol(
-            systemSymbolName: MenuSymbols.upcomingEvent,
-            accessibilityDescription: "Upcoming"
-        )
     }
 
     private func templateCalendarIcon() -> NSImage? {
@@ -221,14 +170,26 @@ final class StatusItemController: NSObject {
     }
 
     @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
+        if isPresentingMenu {
+            return
+        }
         guard let event = NSApp.currentEvent else { return }
-        if monitor.statusItemClickJoins, event.type != .rightMouseUp {
+        if monitor.showsJoinNow, event.type != .rightMouseUp {
             monitor.joinFeaturedMeeting()
             return
         }
+        guard let statusItem else { return }
         let menu = buildMenu()
-        let location = NSPoint(x: 0, y: sender.bounds.height + 4)
-        menu.popUp(positioning: nil, at: location, in: sender)
+        menu.delegate = self
+        isPresentingMenu = true
+        statusItem.menu = menu
+        sender.performClick(nil)
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        statusItem?.menu = nil
+        isPresentingMenu = false
+        menu.delegate = nil
     }
 
     private func buildMenu() -> NSMenu {
@@ -243,6 +204,7 @@ final class StatusItemController: NSObject {
             ).target = self
         } else if let meeting = monitor.meeting {
             let now = Date()
+            menu.addItem(MenuSectionHeader.menuItem(title: "Next event"))
             if monitor.showsMenuJoin {
                 let joinItem = menu.addItem(
                     withTitle: "Join",
@@ -250,14 +212,23 @@ final class StatusItemController: NSObject {
                     keyEquivalent: ""
                 )
                 joinItem.target = self
-                joinItem.image = templateMenuSymbol(
-                    systemSymbolName: "video.fill",
-                    accessibilityDescription: "Join meeting"
-                )
-                menu.addItem(NSMenuItem.separator())
             }
+            if monitor.showsJoinNow {
+                let dismissItem = menu.addItem(
+                    withTitle: "Dismiss",
+                    action: #selector(dismissJoinNow),
+                    keyEquivalent: ""
+                )
+                dismissItem.target = self
+            }
+            menu.addItem(
+                withTitle: "View event",
+                action: #selector(openCalendar),
+                keyEquivalent: ""
+            ).target = self
+            menu.addItem(NSMenuItem.separator())
+            menu.addItem(MenuSectionHeader.menuItem(title: "Today"))
             let dayEvents = monitor.eventsForDay(containing: meeting.start)
-            let nextUpcomingInMenu = dayEvents.first { $0.start > now }
             let timeStrings = dayEvents.map { $0.start.formatted(date: .omitted, time: .shortened) }
             let durationStrings = dayEvents.map(\.menuDurationLabel)
             let columnWidths = MenuEventRow.columnWidths(
@@ -286,22 +257,11 @@ final class StatusItemController: NSObject {
                 item.target = self
                 item.representedObject = event
                 item.isEnabled = true
-                applyMenuEventIndicator(
-                    to: item,
-                    event: event,
-                    nextUpcomingInMenu: nextUpcomingInMenu
-                )
                 menu.addItem(item)
             }
             if dayEvents.isEmpty {
                 menu.addItem(withTitle: "No events today", action: nil, keyEquivalent: "")
             }
-            menu.addItem(NSMenuItem.separator())
-            menu.addItem(
-                withTitle: "Open in Calendar",
-                action: #selector(openCalendar),
-                keyEquivalent: ""
-            ).target = self
         } else if monitor.access == .unknown {
             menu.addItem(withTitle: "Requesting calendar access…", action: nil, keyEquivalent: "")
         } else {
@@ -325,6 +285,10 @@ final class StatusItemController: NSObject {
 
     @objc private func joinFeaturedMeeting() {
         monitor.joinFeaturedMeeting()
+    }
+
+    @objc private func dismissJoinNow() {
+        monitor.dismissJoinNow()
     }
 
     @objc private func openCalendar() {

@@ -27,7 +27,8 @@ enum MenuBarSchedule {
     ) -> MenuBarScheduleResult? {
         if let next,
            hasJoinURL(next),
-           next.start.timeIntervalSince(now) <= joinNowLead {
+           next.start.timeIntervalSince(now) <= joinNowLead,
+           !isJoinNowSuppressed(next) {
             return result(for: next, kind: .joinNow, now: now)
         }
 
