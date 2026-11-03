@@ -119,9 +119,21 @@ final class MeetingMonitor: ObservableObject {
 
     func joinMeeting(_ event: MeetingSnapshot) {
         let now = Date()
-        guard MenuBarSchedule.canJoin(event: event, now: now, earlyJoin: MenuBarSchedule.earlyJoinWindow),
-              let url = event.joinURL else { return }
-        suppressJoinNow(for: event)
+        guard let url = event.joinURL else { return }
+
+        let joinNowActive = MenuBarSchedule.shouldShowJoinNow(
+            meeting: event,
+            now: now,
+            isSuppressed: isJoinNowSuppressed(event: event, now: now)
+        )
+        let canEarlyJoin = MenuBarSchedule.canJoin(
+            event: event,
+            now: now,
+            earlyJoin: MenuBarSchedule.earlyJoinWindow
+        )
+        guard joinNowActive || canEarlyJoin else { return }
+
+        suppressJoinNow(for: event, now: now)
         NSWorkspace.shared.open(url)
         refresh()
     }
@@ -132,15 +144,29 @@ final class MeetingMonitor: ObservableObject {
     }
 
     func dismissJoinNow() {
-        guard showsJoinNow, let meeting else { return }
-        suppressJoinNow(for: meeting)
+        let now = Date()
+        guard let meeting,
+              MenuBarSchedule.shouldShowJoinNow(
+                  meeting: meeting,
+                  now: now,
+                  isSuppressed: isJoinNowSuppressed(event: meeting, now: now)
+              ) else { return }
+        suppressJoinNow(for: meeting, now: now)
         refresh()
     }
 
-    private func suppressJoinNow(for event: MeetingSnapshot) {
-        joinNowSuppressUntil[event.eventIdentifier] = event.start.addingTimeInterval(
-            MenuBarSchedule.joinNowHoldAfterStart
+    func joinNowActive(for meeting: MeetingSnapshot, now: Date = Date()) -> Bool {
+        MenuBarSchedule.shouldShowJoinNow(
+            meeting: meeting,
+            now: now,
+            isSuppressed: isJoinNowSuppressed(event: meeting, now: now)
         )
+    }
+
+    private func suppressJoinNow(for event: MeetingSnapshot, now: Date = Date()) {
+        let holdEnd = event.start.addingTimeInterval(MenuBarSchedule.joinNowHoldAfterStart)
+        let suppressUntil = max(holdEnd, now.addingTimeInterval(1))
+        joinNowSuppressUntil[event.eventIdentifier] = suppressUntil
     }
 
     /// macOS Calendar.app deep link (Sonoma+). `calshow:` is iOS-only and is not registered on macOS.
@@ -353,24 +379,22 @@ final class MeetingMonitor: ObservableObject {
     }
 
     private static func snapshot(from event: EKEvent, store: EKEventStore) -> MeetingSnapshot {
-        let resolved = resolvedEvent(event, store: store)
-        return MeetingSnapshot(
-            eventIdentifier: resolved.eventIdentifier ?? "",
-            calendarItemIdentifier: resolved.calendarItemIdentifier,
-            title: resolved.title?.isEmpty == false ? resolved.title! : "Untitled",
-            start: resolved.startDate,
-            end: resolved.endDate,
-            calendarTitle: resolved.calendar.title,
-            joinURL: ConferenceLinkResolver.joinURL(from: resolved)
-        )
-    }
-
-    private static func resolvedEvent(_ event: EKEvent, store: EKEventStore) -> EKEvent {
-        guard let identifier = event.eventIdentifier,
-              let full = store.event(withIdentifier: identifier) else {
-            return event
+        var joinURL = ConferenceLinkResolver.joinURL(from: event)
+        if joinURL == nil,
+           let identifier = event.eventIdentifier,
+           let master = store.event(withIdentifier: identifier) {
+            joinURL = ConferenceLinkResolver.joinURL(from: master)
         }
-        return full
+
+        return MeetingSnapshot(
+            eventIdentifier: event.eventIdentifier ?? "",
+            calendarItemIdentifier: event.calendarItemIdentifier,
+            title: event.title?.isEmpty == false ? event.title! : "Untitled",
+            start: event.startDate,
+            end: event.endDate,
+            calendarTitle: event.calendar.title,
+            joinURL: joinURL
+        )
     }
 
     private static func truncatedMenuBarEventName(_ name: String) -> String {

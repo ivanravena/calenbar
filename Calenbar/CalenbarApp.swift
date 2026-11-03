@@ -21,7 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
         let monitor = MeetingMonitor()
         self.monitor = monitor
-        statusController = StatusItemController(monitor: monitor)
+        statusController = StatusItemController(monitor: monitor, settings: AppSettings.shared)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

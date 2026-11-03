@@ -11,13 +11,16 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     private let monitor: MeetingMonitor
+    private let settings: AppSettings
     private var statusItem: NSStatusItem?
     private var cancellables = Set<AnyCancellable>()
     /// Guards `performClick` re-entry while presenting `statusItem.menu`.
     private var isPresentingMenu = false
+    private var pendingMenuSend: (Selector, AnyObject, NSMenuItem)?
 
-    init(monitor: MeetingMonitor) {
+    init(monitor: MeetingMonitor, settings: AppSettings) {
         self.monitor = monitor
+        self.settings = settings
         super.init()
         bind()
         observeScreenChanges()
@@ -53,6 +56,16 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         )
         .receive(on: RunLoop.main)
         .sink { [weak self] _ in
+            self?.applyPresentation()
+        }
+        .store(in: &cancellables)
+
+        Publishers.CombineLatest(
+            settings.$menuBarContentStyle,
+            settings.$colorTheme
+        )
+        .receive(on: RunLoop.main)
+        .sink { [weak self] _, _ in
             self?.applyPresentation()
         }
         .store(in: &cancellables)
@@ -92,21 +105,37 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         if let name = monitor.menuBarNameText, !monitor.timePhraseText.isEmpty {
             button.title = ""
-            let joinPhraseAsButton = monitor.showsJoinNow
-            if monitor.isUrgent {
+            let now = Date()
+            let meeting = monitor.meeting
+            let joinPhraseAsButton = meeting.map { monitor.joinNowActive(for: $0, now: now) } ?? false
+            let timePhrase = monitor.timePhraseText
+            let isUrgent = joinPhraseAsButton
+                || (meeting.map {
+                    $0.start > now && $0.start.timeIntervalSince(now) <= MenuBarSchedule.urgentCountdownThreshold
+                } ?? false)
+            let displayName = settings.showsEventTitle ? name : ""
+            let showsEventTitle = settings.showsEventTitle
+            let alertColor = settings.alertColor.color
+            let joinNowColor = settings.joinNowColor.color
+            if isUrgent {
                 button.image = renderLabelImage(
                     MenuBarPill(
-                        meetingName: name,
-                        timePhrase: monitor.timePhraseText,
-                        joinPhraseAsButton: joinPhraseAsButton
+                        meetingName: displayName,
+                        timePhrase: timePhrase,
+                        joinPhraseAsButton: joinPhraseAsButton,
+                        showsEventTitle: showsEventTitle,
+                        alertColor: alertColor,
+                        joinNowColor: joinNowColor
                     )
                 )
             } else {
                 button.image = renderLabelImage(
                     MenuBarStandardLabel(
-                        meetingName: name,
-                        timePhrase: monitor.timePhraseText,
-                        joinPhraseAsButton: joinPhraseAsButton
+                        meetingName: displayName,
+                        timePhrase: timePhrase,
+                        joinPhraseAsButton: joinPhraseAsButton,
+                        showsEventTitle: showsEventTitle,
+                        joinNowColor: joinNowColor
                     )
                 )
             }
@@ -129,7 +158,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     private func statusItemToolTip(fallback: String) -> String {
         guard let meeting = monitor.meeting else { return fallback }
-        if monitor.showsJoinNow, let joinable = monitor.joinableMeeting {
+        let now = Date()
+        if monitor.joinNowActive(for: meeting, now: now), let joinable = monitor.joinableMeeting {
             return "\(joinable.title) — Click to join"
         }
         let phrase = monitor.timePhraseText
@@ -174,7 +204,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             return
         }
         guard let event = NSApp.currentEvent else { return }
-        if monitor.showsJoinNow, event.type != .rightMouseUp {
+        let now = Date()
+        if let meeting = monitor.meeting,
+           monitor.joinNowActive(for: meeting, now: now),
+           event.type != .rightMouseUp {
             monitor.joinFeaturedMeeting()
             return
         }
@@ -186,10 +219,29 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         sender.performClick(nil)
     }
 
+    func menu(_ menu: NSMenu, willSendAction action: Selector, to target: Any?) -> Bool {
+        guard action != Selector("") else { return true }
+        guard let item = menu.items.first(where: { menuItem in
+            guard menuItem.action == action else { return false }
+            let itemTarget = menuItem.target as AnyObject?
+            let sendTarget = (target as AnyObject?) ?? self
+            return itemTarget === sendTarget
+        }) else { return true }
+        pendingMenuSend = (action, (target as AnyObject?) ?? self, item)
+        return false
+    }
+
     func menuDidClose(_ menu: NSMenu) {
+        let pending = pendingMenuSend
+        pendingMenuSend = nil
         statusItem?.menu = nil
         isPresentingMenu = false
         menu.delegate = nil
+
+        guard let (action, target, item) = pending else { return }
+        DispatchQueue.main.async {
+            NSApp.sendAction(action, to: target, from: item)
+        }
     }
 
     private func buildMenu() -> NSMenu {
@@ -204,6 +256,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             ).target = self
         } else if let meeting = monitor.meeting {
             let now = Date()
+            let joinNowActive = monitor.joinNowActive(for: meeting, now: now)
             menu.addItem(MenuSectionHeader.menuItem(title: "Next event"))
             if monitor.showsMenuJoin {
                 let joinItem = menu.addItem(
@@ -213,7 +266,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
                 )
                 joinItem.target = self
             }
-            if monitor.showsJoinNow {
+            if joinNowActive {
                 let dismissItem = menu.addItem(
                     withTitle: "Dismiss",
                     action: #selector(dismissJoinNow),
@@ -269,6 +322,13 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         }
 
         menu.addItem(NSMenuItem.separator())
+        menu.addItem(MenuSectionHeader.menuItem(title: AppVersion.menuSectionTitle))
+        let settingsItem = menu.addItem(
+            withTitle: "Settings…",
+            action: #selector(openSettings),
+            keyEquivalent: ","
+        )
+        settingsItem.target = self
         menu.addItem(
             withTitle: "Quit Calenbar",
             action: #selector(quit),
@@ -297,6 +357,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     @objc private func openPrivacySettings() {
         monitor.openPrivacySettings()
+    }
+
+    @objc private func openSettings() {
+        SettingsPresenter.show()
     }
 
     @objc private func quit() {

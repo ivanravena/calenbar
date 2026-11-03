@@ -292,6 +292,37 @@ final class MenuBarScheduleTests: XCTestCase {
         )
     }
 
+    func testMeetingInSeventyMinutesDoesNotShowJoinNow() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        let next = meeting(
+            id: "next",
+            title: "Later",
+            start: now.addingTimeInterval(70 * 60),
+            joinURL: joinURL
+        )
+
+        let result = MenuBarSchedule.resolve(running: nil, next: next, now: now)
+
+        XCTAssertEqual(result?.phraseKind, .untilStart)
+        XCTAssertEqual(result?.phraseText, "in 1 h 10 min")
+        XCTAssertFalse(
+            MenuBarSchedule.shouldShowJoinNow(meeting: next, now: now, isSuppressed: false)
+        )
+    }
+
+    func testShouldShowJoinNowWithinTwoMinuteLead() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        let next = meeting(
+            id: "next",
+            title: "Soon",
+            start: now.addingTimeInterval(90),
+            joinURL: joinURL
+        )
+        XCTAssertTrue(
+            MenuBarSchedule.shouldShowJoinNow(meeting: next, now: now, isSuppressed: false)
+        )
+    }
+
     private func meeting(
         id: String,
         title: String,
