@@ -220,7 +220,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     func menu(_ menu: NSMenu, willSendAction action: Selector, to target: Any?) -> Bool {
-        guard action != Selector("") else { return true }
+        guard !NSStringFromSelector(action).isEmpty else { return true }
         guard let item = menu.items.first(where: { menuItem in
             guard menuItem.action == action else { return false }
             let itemTarget = menuItem.target as AnyObject?

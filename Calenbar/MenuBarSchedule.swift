@@ -39,7 +39,7 @@ enum MenuBarSchedule {
             return result(for: next, kind: .untilStart, now: now)
         }
 
-        if let running, let next, next.start.timeIntervalSince(now) <= nextHandoffLead {
+        if running != nil, let next, next.start.timeIntervalSince(now) <= nextHandoffLead {
             return result(for: next, kind: .untilStart, now: now)
         }
 
