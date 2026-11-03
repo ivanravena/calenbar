@@ -72,17 +72,29 @@ private struct CustomizeSettingsPane: View {
                 .pickerStyle(.segmented)
             }
 
-            Section("Colors") {
-                ColorPicker(
-                    "Alert state",
-                    selection: binding(for: \.alertColor),
-                    supportsOpacity: false
-                )
-                ColorPicker(
-                    "Join now button",
-                    selection: binding(for: \.joinNowColor),
-                    supportsOpacity: false
-                )
+            Section {
+                Text("Sets alert and Join now colors.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    ForEach(ColorTheme.allCases) { theme in
+                        ColorThemePresetCard(
+                            theme: theme,
+                            isSelected: settings.colorTheme == theme
+                        ) {
+                            settings.colorTheme = theme
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
+
+                Button("Reset to default") {
+                    settings.resetColorsToDefault()
+                }
+                .buttonStyle(.link)
+                .disabled(settings.colorTheme == .calenbarDefault)
+            } header: {
+                Text("Color theme")
             }
 
             Section("Preview") {
@@ -108,7 +120,7 @@ private struct CustomizeSettingsPane: View {
                         alertColor: settings.alertColor.color,
                         joinNowColor: settings.joinNowColor.color
                     )
-                    Text("Join now")
+                    Text("Sample — Join now")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     MenuBarPill(
@@ -125,11 +137,49 @@ private struct CustomizeSettingsPane: View {
         }
         .formStyle(.grouped)
     }
+}
 
-    private func binding(for keyPath: ReferenceWritableKeyPath<AppSettings, StoredColor>) -> Binding<Color> {
-        Binding(
-            get: { settings[keyPath: keyPath].color },
-            set: { settings[keyPath: keyPath] = StoredColor(color: $0) }
-        )
+private struct ColorThemePresetCard: View {
+    let theme: ColorTheme
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(theme.displayName)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(Color.accentColor)
+                    }
+                }
+                HStack(spacing: 6) {
+                    Capsule()
+                        .fill(theme.alertColor.color)
+                        .frame(width: 36, height: 14)
+                    Capsule()
+                        .fill(theme.joinNowColor.color)
+                        .frame(width: 36, height: 14)
+                }
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(
+                        isSelected ? Color.accentColor : Color.primary.opacity(0.12),
+                        lineWidth: isSelected ? 2 : 1
+                    )
+            }
+        }
+        .buttonStyle(.plain)
     }
 }

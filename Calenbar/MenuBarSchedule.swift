@@ -26,16 +26,12 @@ enum MenuBarSchedule {
         isJoinNowSuppressed: (MeetingSnapshot) -> Bool = { _ in false }
     ) -> MenuBarScheduleResult? {
         if let next,
-           hasJoinURL(next),
-           next.start.timeIntervalSince(now) <= joinNowLead,
-           !isJoinNowSuppressed(next) {
+           shouldShowJoinNow(meeting: next, now: now, isSuppressed: isJoinNowSuppressed(next)) {
             return result(for: next, kind: .joinNow, now: now)
         }
 
         if let running,
-           hasJoinURL(running),
-           now.timeIntervalSince(running.start) < joinNowHoldAfterStart,
-           !isJoinNowSuppressed(running) {
+           shouldShowJoinNow(meeting: running, now: now, isSuppressed: isJoinNowSuppressed(running)) {
             return result(for: running, kind: .joinNow, now: now)
         }
 
@@ -96,6 +92,21 @@ enum MenuBarSchedule {
         return true
     }
 
+    static func shouldShowJoinNow(
+        meeting: MeetingSnapshot,
+        now: Date,
+        isSuppressed: Bool
+    ) -> Bool {
+        guard hasJoinURL(meeting), !isSuppressed else { return false }
+        if now < meeting.start {
+            return meeting.start.timeIntervalSince(now) <= joinNowLead
+        }
+        if now < meeting.end {
+            return now.timeIntervalSince(meeting.start) < joinNowHoldAfterStart
+        }
+        return false
+    }
+
     static func canJoin(event: MeetingSnapshot, now: Date, earlyJoin: TimeInterval) -> Bool {
         guard hasJoinURL(event) else { return false }
         let opens = event.start.addingTimeInterval(-earlyJoin)
@@ -104,7 +115,7 @@ enum MenuBarSchedule {
 
     static func phrase(until start: Date, now: Date) -> String {
         let seconds = start.timeIntervalSince(now)
-        if seconds <= 0 { return "now" }
+        if seconds <= 0 { return "in 1 min" }
 
         let minutes = Int(seconds / 60)
         if minutes < 60 {
