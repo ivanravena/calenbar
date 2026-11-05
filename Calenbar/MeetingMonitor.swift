@@ -57,6 +57,7 @@ final class MeetingMonitor: ObservableObject {
     @Published private(set) var joinableMeeting: MeetingSnapshot?
     @Published private(set) var showsJoinNow: Bool = false
     @Published private(set) var showsMenuJoin: Bool = false
+    @Published private(set) var isDoneForToday: Bool = false
 
     private let store = EKEventStore()
     private var pollTimer: Timer?
@@ -71,7 +72,7 @@ final class MeetingMonitor: ObservableObject {
         if access == .denied || access == .unknown {
             return true
         }
-        return meeting != nil
+        return meeting != nil || isDoneForToday
     }
 
     init() {
@@ -228,6 +229,7 @@ final class MeetingMonitor: ObservableObject {
             joinableMeeting = nil
             showsJoinNow = false
             showsMenuJoin = false
+            isDoneForToday = false
             boundaryTimer?.invalidate()
             boundaryTimer = nil
             return
@@ -256,7 +258,7 @@ final class MeetingMonitor: ObservableObject {
 
         inProgressMeeting = runningSnapshot
 
-        let schedule = MenuBarSchedule.resolve(
+        let display = MenuBarSchedule.resolve(
             running: runningSnapshot,
             next: nextSnapshot,
             now: now,
@@ -265,7 +267,9 @@ final class MeetingMonitor: ObservableObject {
             }
         )
 
-        if let schedule {
+        switch display {
+        case .event(let schedule):
+            isDoneForToday = false
             meeting = schedule.displayedMeeting
             let menuBarName = Self.truncatedMenuBarEventName(schedule.displayedMeeting.title)
             meetingNameText = schedule.displayedMeeting.title
@@ -290,7 +294,19 @@ final class MeetingMonitor: ObservableObject {
                 now: now,
                 earlyJoin: earlyJoin
             )
-        } else {
+        case .noMoreEventsToday:
+            isDoneForToday = true
+            meeting = nil
+            meetingNameText = nil
+            menuBarNameText = nil
+            timePhraseText = MenuBarSchedule.doneForTodayPhrase
+            labelText = MenuBarSchedule.doneForTodayPhrase
+            isUrgent = false
+            showsJoinNow = false
+            showsMenuJoin = false
+            joinableMeeting = nil
+        case nil:
+            isDoneForToday = false
             meeting = nil
             meetingNameText = nil
             menuBarNameText = nil

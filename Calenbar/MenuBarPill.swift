@@ -60,6 +60,7 @@ struct MenuBarStandardLabel: View {
     let timePhrase: String
     var joinPhraseAsButton: Bool = false
     var showsEventTitle: Bool = true
+    var statusIconName: String = "calendar"
     var joinNowColor: Color = AppSettings.defaultJoinNowColor.color
 
     private enum Metrics {
@@ -74,7 +75,7 @@ struct MenuBarStandardLabel: View {
 
     var body: some View {
         HStack(spacing: Metrics.iconTextSpacing) {
-            Image(systemName: "calendar")
+            Image(systemName: statusIconName)
                 .font(Typography.icon)
             MenuBarMixedTitle(
                 meetingName: meetingName,
@@ -88,6 +89,19 @@ struct MenuBarStandardLabel: View {
         }
         .foregroundStyle(Color(nsColor: .labelColor))
         .fixedSize()
+    }
+}
+
+struct MenuBarDoneForTodayIcon: View {
+    private enum Typography {
+        static let icon = Font.system(size: 11, weight: .semibold)
+    }
+
+    var body: some View {
+        Image(systemName: "calendar.badge.checkmark")
+            .font(Typography.icon)
+            .foregroundStyle(Color(nsColor: .labelColor))
+            .fixedSize()
     }
 }
 

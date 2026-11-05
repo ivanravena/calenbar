@@ -12,7 +12,13 @@ struct MenuBarScheduleResult: Equatable {
     let phraseText: String
 }
 
+enum MenuBarDisplay: Equatable {
+    case event(MenuBarScheduleResult)
+    case noMoreEventsToday
+}
+
 enum MenuBarSchedule {
+    static let doneForTodayPhrase = "Done for today"
     static let joinNowLead: TimeInterval = 2 * 60
     static let nextHandoffLead: TimeInterval = 15 * 60
     static let joinNowHoldAfterStart: TimeInterval = 5 * 60
@@ -24,27 +30,30 @@ enum MenuBarSchedule {
         next: MeetingSnapshot?,
         now: Date,
         isJoinNowSuppressed: (MeetingSnapshot) -> Bool = { _ in false }
-    ) -> MenuBarScheduleResult? {
+    ) -> MenuBarDisplay? {
         if let next,
            shouldShowJoinNow(meeting: next, now: now, isSuppressed: isJoinNowSuppressed(next)) {
-            return result(for: next, kind: .joinNow, now: now)
+            return .event(result(for: next, kind: .joinNow, now: now))
         }
 
         if let running,
            shouldShowJoinNow(meeting: running, now: now, isSuppressed: isJoinNowSuppressed(running)) {
-            return result(for: running, kind: .joinNow, now: now)
+            return .event(result(for: running, kind: .joinNow, now: now))
         }
 
         if running == nil, let next {
-            return result(for: next, kind: .untilStart, now: now)
+            if !Calendar.current.isDate(next.start, inSameDayAs: now) {
+                return .noMoreEventsToday
+            }
+            return .event(result(for: next, kind: .untilStart, now: now))
         }
 
         if running != nil, let next, next.start.timeIntervalSince(now) <= nextHandoffLead {
-            return result(for: next, kind: .untilStart, now: now)
+            return .event(result(for: next, kind: .untilStart, now: now))
         }
 
         if let running {
-            return result(for: running, kind: .remaining, now: now)
+            return .event(result(for: running, kind: .remaining, now: now))
         }
 
         return nil

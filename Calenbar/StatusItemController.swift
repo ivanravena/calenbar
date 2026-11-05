@@ -48,10 +48,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             monitor.$isUrgent
         )
         .combineLatest(
-            Publishers.CombineLatest3(
+            Publishers.CombineLatest4(
                 monitor.$menuBarNameText,
                 monitor.$timePhraseText,
-                monitor.$showsJoinNow
+                monitor.$showsJoinNow,
+                monitor.$isDoneForToday
             )
         )
         .receive(on: RunLoop.main)
@@ -103,7 +104,22 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let text = monitor.labelText
         button.attributedTitle = NSAttributedString(string: "")
 
-        if let name = monitor.menuBarNameText, !monitor.timePhraseText.isEmpty {
+        if monitor.isDoneForToday {
+            button.title = ""
+            if settings.showsEventTitle {
+                button.image = renderLabelImage(
+                    MenuBarStandardLabel(
+                        meetingName: "",
+                        timePhrase: MenuBarSchedule.doneForTodayPhrase,
+                        showsEventTitle: false,
+                        statusIconName: "calendar.badge.checkmark"
+                    )
+                )
+            } else {
+                button.image = renderLabelImage(MenuBarDoneForTodayIcon())
+            }
+            button.imagePosition = .imageOnly
+        } else if let name = monitor.menuBarNameText, !monitor.timePhraseText.isEmpty {
             button.title = ""
             let now = Date()
             let meeting = monitor.meeting
@@ -157,6 +173,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     private func statusItemToolTip(fallback: String) -> String {
+        if monitor.isDoneForToday {
+            return MenuBarSchedule.doneForTodayPhrase
+        }
         guard let meeting = monitor.meeting else { return fallback }
         let now = Date()
         if monitor.joinNowActive(for: meeting, now: now), let joinable = monitor.joinableMeeting {
@@ -244,6 +263,43 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         }
     }
 
+    private func appendEmptyDayPlaceholder(to menu: NSMenu, title: String) {
+        menu.addItem(withTitle: title, action: nil, keyEquivalent: "")
+    }
+
+    private func appendDayEventRows(to menu: NSMenu, events: [MeetingSnapshot], now: Date) {
+        let timeStrings = events.map { $0.start.formatted(date: .omitted, time: .shortened) }
+        let durationStrings = events.map(\.menuDurationLabel)
+        let columnWidths = MenuEventRow.columnWidths(
+            timeStrings: timeStrings,
+            durationStrings: durationStrings
+        )
+        for event in events {
+            let timeString = event.start.formatted(date: .omitted, time: .shortened)
+            let eventTitle = truncatedMenuEventName(event.title)
+            let accessibilityTitle =
+                "\(timeString)  \(event.menuDurationLabel)  \(eventTitle)"
+            let isPast = event.end <= now
+            let item = NSMenuItem(
+                title: accessibilityTitle,
+                action: #selector(eventMenuItemActivated(_:)),
+                keyEquivalent: ""
+            )
+            item.attributedTitle = MenuEventRow.attributedTitle(
+                timeText: timeString,
+                durationText: event.menuDurationLabel,
+                titleText: eventTitle,
+                isPast: isPast,
+                timeColumnWidth: columnWidths.time,
+                durationColumnWidth: columnWidths.duration
+            )
+            item.target = self
+            item.representedObject = event
+            item.isEnabled = true
+            menu.addItem(item)
+        }
+    }
+
     private func buildMenu() -> NSMenu {
         let menu = NSMenu()
 
@@ -254,6 +310,19 @@ final class StatusItemController: NSObject, NSMenuDelegate {
                 action: #selector(openPrivacySettings),
                 keyEquivalent: ""
             ).target = self
+        } else if monitor.isDoneForToday {
+            let calendar = Calendar.current
+            let now = Date()
+            let todayStart = calendar.startOfDay(for: now)
+            let tomorrowStart = calendar.date(byAdding: .day, value: 1, to: todayStart) ?? now
+
+            menu.addItem(MenuSectionHeader.menuItem(title: "Tomorrow"))
+            let tomorrowEvents = monitor.eventsForDay(containing: tomorrowStart)
+            if tomorrowEvents.isEmpty {
+                appendEmptyDayPlaceholder(to: menu, title: "No events tomorrow")
+            } else {
+                appendDayEventRows(to: menu, events: tomorrowEvents, now: now)
+            }
         } else if let meeting = monitor.meeting {
             let now = Date()
             let joinNowActive = monitor.joinNowActive(for: meeting, now: now)
@@ -282,38 +351,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             menu.addItem(NSMenuItem.separator())
             menu.addItem(MenuSectionHeader.menuItem(title: "Today"))
             let dayEvents = monitor.eventsForDay(containing: meeting.start)
-            let timeStrings = dayEvents.map { $0.start.formatted(date: .omitted, time: .shortened) }
-            let durationStrings = dayEvents.map(\.menuDurationLabel)
-            let columnWidths = MenuEventRow.columnWidths(
-                timeStrings: timeStrings,
-                durationStrings: durationStrings
-            )
-            for event in dayEvents {
-                let timeString = event.start.formatted(date: .omitted, time: .shortened)
-                let eventTitle = truncatedMenuEventName(event.title)
-                let accessibilityTitle =
-                    "\(timeString)  \(event.menuDurationLabel)  \(eventTitle)"
-                let isPast = event.end <= now
-                let item = NSMenuItem(
-                    title: accessibilityTitle,
-                    action: #selector(eventMenuItemActivated(_:)),
-                    keyEquivalent: ""
-                )
-                item.attributedTitle = MenuEventRow.attributedTitle(
-                    timeText: timeString,
-                    durationText: event.menuDurationLabel,
-                    titleText: eventTitle,
-                    isPast: isPast,
-                    timeColumnWidth: columnWidths.time,
-                    durationColumnWidth: columnWidths.duration
-                )
-                item.target = self
-                item.representedObject = event
-                item.isEnabled = true
-                menu.addItem(item)
-            }
             if dayEvents.isEmpty {
-                menu.addItem(withTitle: "No events today", action: nil, keyEquivalent: "")
+                appendEmptyDayPlaceholder(to: menu, title: "No events today")
+            } else {
+                appendDayEventRows(to: menu, events: dayEvents, now: now)
             }
         } else if monitor.access == .unknown {
             menu.addItem(withTitle: "Requesting calendar access…", action: nil, keyEquivalent: "")

@@ -6,6 +6,20 @@ import XCTest
 final class MenuBarScheduleTests: XCTestCase {
     private let joinURL = URL(string: "https://meet.example.com/room")!
 
+    private func eventResult(from display: MenuBarDisplay?) -> MenuBarScheduleResult? {
+        guard case .event(let result) = display else { return nil }
+        return result
+    }
+
+    private func eveningNowAndTomorrowMorning() -> (now: Date, tomorrow: Date) {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let dayStart = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_700_000_000))
+        let now = dayStart.addingTimeInterval(20 * 3600)
+        let tomorrow = dayStart.addingTimeInterval(24 * 3600 + 9 * 3600)
+        return (now, tomorrow)
+    }
+
     func testIdleShowsCountdownToNext() {
         let now = Date(timeIntervalSince1970: 1_000_000)
         let next = meeting(
@@ -15,7 +29,7 @@ final class MenuBarScheduleTests: XCTestCase {
             joinURL: joinURL
         )
 
-        let result = MenuBarSchedule.resolve(running: nil, next: next, now: now)
+        let result = eventResult(from: MenuBarSchedule.resolve(running: nil, next: next, now: now))
 
         XCTAssertEqual(result?.displayedMeeting.eventIdentifier, "next")
         XCTAssertEqual(result?.phraseKind, .untilStart)
@@ -38,7 +52,7 @@ final class MenuBarScheduleTests: XCTestCase {
             joinURL: joinURL
         )
 
-        let result = MenuBarSchedule.resolve(running: running, next: next, now: now)
+        let result = eventResult(from: MenuBarSchedule.resolve(running: running, next: next, now: now))
 
         XCTAssertEqual(result?.displayedMeeting.eventIdentifier, "run")
         XCTAssertEqual(result?.phraseKind, .remaining)
@@ -55,7 +69,7 @@ final class MenuBarScheduleTests: XCTestCase {
             joinURL: joinURL
         )
 
-        let result = MenuBarSchedule.resolve(running: running, next: nil, now: now)
+        let result = eventResult(from: MenuBarSchedule.resolve(running: running, next: nil, now: now))
 
         XCTAssertEqual(result?.phraseKind, .remaining)
         XCTAssertEqual(result?.phraseText, "25 min left")
@@ -77,7 +91,7 @@ final class MenuBarScheduleTests: XCTestCase {
             joinURL: joinURL
         )
 
-        let result = MenuBarSchedule.resolve(running: running, next: next, now: now)
+        let result = eventResult(from: MenuBarSchedule.resolve(running: running, next: next, now: now))
 
         XCTAssertEqual(result?.displayedMeeting.eventIdentifier, "next")
         XCTAssertEqual(result?.phraseKind, .untilStart)
@@ -100,7 +114,7 @@ final class MenuBarScheduleTests: XCTestCase {
             joinURL: joinURL
         )
 
-        let result = MenuBarSchedule.resolve(running: running, next: next, now: now)
+        let result = eventResult(from: MenuBarSchedule.resolve(running: running, next: next, now: now))
 
         XCTAssertEqual(result?.displayedMeeting.eventIdentifier, "next")
         XCTAssertEqual(result?.phraseKind, .joinNow)
@@ -123,7 +137,7 @@ final class MenuBarScheduleTests: XCTestCase {
             joinURL: joinURL
         )
 
-        let result = MenuBarSchedule.resolve(running: running, next: next, now: now)
+        let result = eventResult(from: MenuBarSchedule.resolve(running: running, next: next, now: now))
 
         XCTAssertEqual(result?.displayedMeeting.eventIdentifier, "run")
         XCTAssertEqual(result?.phraseKind, .joinNow)
@@ -145,7 +159,7 @@ final class MenuBarScheduleTests: XCTestCase {
             joinURL: joinURL
         )
 
-        let result = MenuBarSchedule.resolve(running: running, next: next, now: now)
+        let result = eventResult(from: MenuBarSchedule.resolve(running: running, next: next, now: now))
 
         XCTAssertEqual(result?.displayedMeeting.eventIdentifier, "next")
         XCTAssertEqual(result?.phraseKind, .untilStart)
@@ -160,7 +174,7 @@ final class MenuBarScheduleTests: XCTestCase {
             joinURL: nil
         )
 
-        let idle = MenuBarSchedule.resolve(running: nil, next: nextSoon, now: now)
+        let idle = eventResult(from: MenuBarSchedule.resolve(running: nil, next: nextSoon, now: now))
         XCTAssertEqual(idle?.phraseKind, .untilStart)
         XCTAssertEqual(idle?.phraseText, "in 1 min")
 
@@ -171,7 +185,7 @@ final class MenuBarScheduleTests: XCTestCase {
             end: now.addingTimeInterval(30 * 60),
             joinURL: nil
         )
-        let during = MenuBarSchedule.resolve(running: running, next: nil, now: now)
+        let during = eventResult(from: MenuBarSchedule.resolve(running: running, next: nil, now: now))
         XCTAssertEqual(during?.phraseKind, .remaining)
     }
 
@@ -184,12 +198,12 @@ final class MenuBarScheduleTests: XCTestCase {
             joinURL: joinURL
         )
 
-        let result = MenuBarSchedule.resolve(
+        let result = eventResult(from: MenuBarSchedule.resolve(
             running: nil,
             next: next,
             now: now,
             isJoinNowSuppressed: { $0.eventIdentifier == "next" }
-        )
+        ))
 
         XCTAssertEqual(result?.phraseKind, .untilStart)
         XCTAssertEqual(result?.phraseText, "in 1 min")
@@ -205,12 +219,12 @@ final class MenuBarScheduleTests: XCTestCase {
             joinURL: joinURL
         )
 
-        let result = MenuBarSchedule.resolve(
+        let result = eventResult(from: MenuBarSchedule.resolve(
             running: running,
             next: nil,
             now: now,
             isJoinNowSuppressed: { $0.eventIdentifier == "run" }
-        )
+        ))
 
         XCTAssertEqual(result?.phraseKind, .remaining)
     }
@@ -301,7 +315,7 @@ final class MenuBarScheduleTests: XCTestCase {
             joinURL: joinURL
         )
 
-        let result = MenuBarSchedule.resolve(running: nil, next: next, now: now)
+        let result = eventResult(from: MenuBarSchedule.resolve(running: nil, next: next, now: now))
 
         XCTAssertEqual(result?.phraseKind, .untilStart)
         XCTAssertEqual(result?.phraseText, "in 1 h 10 min")
@@ -321,6 +335,61 @@ final class MenuBarScheduleTests: XCTestCase {
         XCTAssertTrue(
             MenuBarSchedule.shouldShowJoinNow(meeting: next, now: now, isSuppressed: false)
         )
+    }
+
+    func testIdleWithNextOnLaterDayShowsDoneForToday() {
+        let (now, tomorrow) = eveningNowAndTomorrowMorning()
+        let next = meeting(
+            id: "next",
+            title: "Morning standup",
+            start: tomorrow,
+            joinURL: joinURL
+        )
+
+        let display = MenuBarSchedule.resolve(running: nil, next: next, now: now)
+
+        XCTAssertEqual(display, .noMoreEventsToday)
+    }
+
+    func testRunningWithNextOnLaterDayShowsTimeRemaining() {
+        let (now, tomorrow) = eveningNowAndTomorrowMorning()
+        let running = meeting(
+            id: "run",
+            title: "Late call",
+            start: now.addingTimeInterval(-30 * 60),
+            end: now.addingTimeInterval(15 * 60),
+            joinURL: joinURL
+        )
+        let next = meeting(
+            id: "next",
+            title: "Morning standup",
+            start: tomorrow,
+            joinURL: joinURL
+        )
+
+        let result = eventResult(from: MenuBarSchedule.resolve(running: running, next: next, now: now))
+
+        XCTAssertEqual(result?.displayedMeeting.eventIdentifier, "run")
+        XCTAssertEqual(result?.phraseKind, .remaining)
+    }
+
+    func testJoinNowForNextTomorrowWithinTwoMinutes() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let dayStart = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_700_000_000))
+        let now = dayStart.addingTimeInterval(24 * 3600 - 90)
+        let nextStart = dayStart.addingTimeInterval(24 * 3600 + 30)
+        XCTAssertFalse(calendar.isDate(nextStart, inSameDayAs: now))
+        let next = meeting(
+            id: "next",
+            title: "Midnight sync",
+            start: nextStart,
+            joinURL: joinURL
+        )
+
+        let result = eventResult(from: MenuBarSchedule.resolve(running: nil, next: next, now: now))
+
+        XCTAssertEqual(result?.phraseKind, .joinNow)
     }
 
     private func meeting(
