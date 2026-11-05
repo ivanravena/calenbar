@@ -22,6 +22,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let monitor = MeetingMonitor()
         self.monitor = monitor
         statusController = StatusItemController(monitor: monitor, settings: AppSettings.shared)
+
+        LaunchAtLoginController.syncPreferenceToSystem(AppSettings.shared.openAtLogin)
+        LaunchAtLoginController.refreshFromSystem(into: AppSettings.shared)
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applicationDidBecomeActive),
+            name: NSApplication.didBecomeActiveNotification,
+            object: nil
+        )
+    }
+
+    @objc private func applicationDidBecomeActive() {
+        LaunchAtLoginController.refreshFromSystem(into: AppSettings.shared)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

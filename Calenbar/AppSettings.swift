@@ -10,8 +10,8 @@ enum MenuBarContentStyle: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .eventTitle: return "Event title"
-        case .timeOnly: return "Time only"
+        case .eventTitle: return "Full"
+        case .timeOnly: return "Compact"
         }
     }
 }
@@ -86,7 +86,7 @@ enum ColorTheme: String, CaseIterable, Identifiable {
     var alertColor: StoredColor {
         switch self {
         case .calenbarDefault:
-            return StoredColor(hex: "#E8B020")
+            return StoredColor(hex: "#FFDB4D")
         case .harvest:
             return StoredColor(hex: "#ECB22E")
         case .studio:
@@ -143,9 +143,12 @@ final class AppSettings: ObservableObject {
     private enum Keys {
         static let menuBarContentStyle = "menuBarContentStyle"
         static let colorTheme = "colorTheme"
+        static let openAtLogin = "openAtLogin"
         static let legacyAlertColor = "alertColor"
         static let legacyJoinNowColor = "joinNowColor"
     }
+
+    private var suppressLaunchAtLoginSync = false
 
     static let defaultAlertColor = ColorTheme.calenbarDefault.alertColor
     static let defaultJoinNowColor = ColorTheme.calenbarDefault.joinNowColor
@@ -160,6 +163,17 @@ final class AppSettings: ObservableObject {
             clearLegacyColorKeys()
         }
     }
+
+    @Published var openAtLogin: Bool {
+        didSet {
+            UserDefaults.standard.set(openAtLogin, forKey: Keys.openAtLogin)
+            guard !suppressLaunchAtLoginSync else { return }
+            LaunchAtLoginController.syncPreferenceToSystem(openAtLogin)
+            loginItemRequiresApproval = LaunchAtLoginController.requiresApproval
+        }
+    }
+
+    @Published private(set) var loginItemRequiresApproval = false
 
     var alertColor: StoredColor { colorTheme.alertColor }
     var joinNowColor: StoredColor { colorTheme.joinNowColor }
@@ -196,6 +210,26 @@ final class AppSettings: ObservableObject {
             }
             defaults.set(ColorTheme.calenbarDefault.rawValue, forKey: Keys.colorTheme)
         }
+
+        if defaults.object(forKey: Keys.openAtLogin) != nil {
+            suppressLaunchAtLoginSync = true
+            openAtLogin = defaults.bool(forKey: Keys.openAtLogin)
+            suppressLaunchAtLoginSync = false
+        } else {
+            suppressLaunchAtLoginSync = true
+            openAtLogin = true
+            suppressLaunchAtLoginSync = false
+            defaults.set(true, forKey: Keys.openAtLogin)
+        }
+    }
+
+    func updateLaunchAtLoginState(effectiveEnabled: Bool, requiresApproval: Bool) {
+        loginItemRequiresApproval = requiresApproval
+        guard openAtLogin != effectiveEnabled else { return }
+        suppressLaunchAtLoginSync = true
+        openAtLogin = effectiveEnabled
+        UserDefaults.standard.set(effectiveEnabled, forKey: Keys.openAtLogin)
+        suppressLaunchAtLoginSync = false
     }
 
     func resetColorsToDefault() {

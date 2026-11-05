@@ -11,7 +11,7 @@ final class SettingsWindowDelegate: NSObject, NSWindowDelegate {
 @MainActor
 enum SettingsPresenter {
     private static let windowIdentifier = NSUserInterfaceItemIdentifier("calenbar.settings")
-    private static let windowSize = NSSize(width: 680, height: 460)
+    private static let windowSize = NSSize(width: 680, height: 560)
 
     private static var window: NSWindow?
     private static let windowDelegate = SettingsWindowDelegate()
