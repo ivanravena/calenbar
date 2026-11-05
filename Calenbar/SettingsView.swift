@@ -1,20 +1,172 @@
 import SwiftUI
 
+private enum SettingsChrome {
+    static let sidebarWidth: CGFloat = 180
+    static let windowMinWidth: CGFloat = 900
+    static let windowMinHeight: CGFloat = 560
+}
+
+private enum SettingsSidebarGroup: String, CaseIterable {
+    case settings = "Settings"
+    case calenbar = "Calenbar"
+
+    var sections: [SettingsSection] {
+        switch self {
+        case .settings: [.customize]
+        case .calenbar: [.about]
+        }
+    }
+}
+
+private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
+    case customize
+    case about
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .customize: "Customize"
+        case .about: "About"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .customize: "slider.horizontal.3"
+        case .about: "info.circle"
+        }
+    }
+
+    var sidebarGroup: SettingsSidebarGroup {
+        switch self {
+        case .customize: .settings
+        case .about: .calenbar
+        }
+    }
+
+    var accentColor: Color {
+        switch self {
+        case .customize: Color(red: 0.22, green: 0.55, blue: 0.95)
+        case .about: Color(white: 0.45)
+        }
+    }
+}
+
 struct SettingsView: View {
     @ObservedObject var settings: AppSettings
+    @State private var selection: SettingsSection = .customize
 
     var body: some View {
-        TabView {
-            CustomizeSettingsPane(settings: settings)
-                .tabItem {
-                    Label("Customize", systemImage: "slider.horizontal.3")
-                }
-            AboutSettingsPane()
-                .tabItem {
-                    Label("About", systemImage: "info.circle")
-                }
+        HStack(spacing: 0) {
+            SettingsSidebar(selection: $selection)
+                .frame(width: SettingsChrome.sidebarWidth)
+                .clipped()
+
+            Divider()
+
+            detailContent
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .frame(minWidth: 680, minHeight: 560)
+        .frame(minWidth: SettingsChrome.windowMinWidth, minHeight: SettingsChrome.windowMinHeight)
+    }
+
+    @ViewBuilder
+    private var detailContent: some View {
+        switch selection {
+        case .customize:
+            CustomizeSettingsPane(settings: settings)
+        case .about:
+            AboutSettingsPane()
+        }
+    }
+}
+
+private struct SettingsSidebar: View {
+    @Binding var selection: SettingsSection
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            ForEach(SettingsSidebarGroup.allCases, id: \.self) { group in
+                VStack(alignment: .leading, spacing: 4) {
+                    SettingsSidebarGroupHeader(title: group.rawValue)
+
+                    ForEach(group.sections) { section in
+                        SettingsSidebarRow(
+                            section: section,
+                            isSelected: selection == section
+                        ) {
+                            selection = section
+                        }
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 16)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(.regularMaterial)
+    }
+}
+
+private struct SettingsSidebarGroupHeader: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.leading, 8)
+            .padding(.bottom, 2)
+    }
+}
+
+private struct SettingsSidebarRow: View {
+    let section: SettingsSection
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                SettingsSidebarIcon(section: section)
+                Text(section.title)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(isSelected ? Color.accentColor.opacity(0.18) : Color.clear)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(
+                        isSelected ? Color.accentColor.opacity(0.35) : Color.clear,
+                        lineWidth: 1
+                    )
+            }
+        }
+        .buttonStyle(.plain)
+        .focusEffectDisabled()
+    }
+}
+
+private struct SettingsSidebarIcon: View {
+    let section: SettingsSection
+
+    var body: some View {
+        Image(systemName: section.systemImage)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 22, height: 22)
+            .background {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(section.accentColor)
+            }
     }
 }
 

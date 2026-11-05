@@ -11,7 +11,7 @@ final class SettingsWindowDelegate: NSObject, NSWindowDelegate {
 @MainActor
 enum SettingsPresenter {
     private static let windowIdentifier = NSUserInterfaceItemIdentifier("calenbar.settings")
-    private static let windowSize = NSSize(width: 680, height: 560)
+    private static let windowSize = NSSize(width: 900, height: 560)
 
     private static var window: NSWindow?
     private static let windowDelegate = SettingsWindowDelegate()
@@ -22,6 +22,7 @@ enum SettingsPresenter {
 
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        settingsWindow.setContentSize(windowSize)
         settingsWindow.center()
         settingsWindow.makeKeyAndOrderFront(nil)
     }
